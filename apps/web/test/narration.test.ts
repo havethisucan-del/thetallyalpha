@@ -145,4 +145,45 @@ describe('narrateEvents', () => {
       'You ended your turn.',
     ]);
   });
+
+  it('adds what a play triggered as details: activation and silencing (same step)', () => {
+    const entries = log(
+      [{ type: 'turnStarted', seat: 0, turnNumber: 2 }],
+      [
+        { type: 'creaturePlayed', seat: 0, cardId: 'c01', role: 'stack' },
+        { type: 'modifierSilenced', seat: 0, cardId: 'c07', kind: 'drawDeck', position: 1 },
+        { type: 'modifierLive', seat: 0, cardId: 'c01', kind: 'buffSelf', position: 2 },
+      ],
+      // A silencing with nothing of its own step to explain it (e.g. cleanup) is not a line.
+      [{ type: 'modifierSilenced', seat: 1, cardId: 'c07', kind: 'drawDeck', position: 1 }],
+    );
+    const lines = narrateEvents(entries, pub, 0);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]?.text).toBe('You played Orange 3 (ATK 4) onto your stack.');
+    expect(lines[0]?.turn).toEqual({ number: 2, side: 'mine' });
+    expect(lines[0]?.details).toEqual([
+      'Silenced: your Blue 2 (ATK 3) — Draw Deck.',
+      expect.stringMatching(/^Activated: your Orange 3 \(ATK 4\) — Buff \+\d+ ATK\.$/),
+    ]);
+  });
+
+  it("states the spell's Condition verdict and which effect fired", () => {
+    const entries = log(
+      [{ type: 'spellPlayed', seat: 1, cardId: 'c05', branch: 'secondary' }],
+      [{ type: 'spellPlayed', seat: 0, cardId: 'c06', branch: 'primary' }],
+    );
+    const [first, second] = narrateEvents(entries, pub, 0);
+    expect(first?.details?.[0]).toMatch(/^Condition not met: Secondary fired/);
+    expect(second?.details?.[0]).toMatch(/^Condition met: Primary fired/);
+  });
+
+  it('marks round starts and the round-result group', () => {
+    const entries = log(
+      [{ type: 'roundStarted', p1: 0 }],
+      [{ type: 'roundOver', reason: 'p1NoBase', seat: 1, atk: [0, 0] }],
+    );
+    const [start, over] = narrateEvents(entries, pub, 0);
+    expect(start?.startsRound).toBe(true);
+    expect(over?.turn).toBe('end');
+  });
 });

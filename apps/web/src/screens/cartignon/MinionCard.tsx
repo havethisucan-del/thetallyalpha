@@ -13,6 +13,7 @@ import {
   type ModifierSymbol,
 } from '../../match/cartignon/minionArt';
 import { PREVIEW_WIDTH } from '../../match/cartignon/cardPreview';
+import { modifierText } from '../../match/cartignon/labels';
 import type { ModifierGlow } from '../../match/cartignon/modifierGlow';
 import type { TableCard } from '../../match/cartignon/tableModel';
 import { CardTexture } from './CardTexture';
@@ -56,10 +57,10 @@ function Ink({ className, text }: { className: string; text: string }) {
 }
 
 /**
- * The card face itself (no interaction). `labels` adds the modifier text labels. `leading` = the
- * card is the Leading (top) card of a stack: only then are its printed modifier symbols drawn at
- * full strength; everywhere else (hand, covered stack cards, graveyard, choices) they are drawn
- * hollow, so the live, glowing modifier on the Leading card stands out (user 2026-10-22).
+ * The card face itself (no interaction). `labels` adds the modifier text labels. Modifier symbols
+ * (user 2026-10-23, minionCard.css): every symbol is drawn plain (hollow); only the active one,
+ * the live slot of the Leading (top) card (`leading` + a live `glow`), is filled and glows; on a
+ * covered card a silenced slot is not drawn.
  */
 export function MinionFace({
   summary,
@@ -157,7 +158,7 @@ export function MinionCard({
   summary: CreatureSummary;
   label: string;
   glow?: ModifierGlow | null;
-  /** The Leading (top) card of a stack: full-strength modifier symbols. */
+  /** The Leading (top) card of a stack: its live modifier is the highlighted, active one. */
   leading?: boolean;
   preview?: boolean;
   focusable?: boolean;
@@ -166,13 +167,23 @@ export function MinionCard({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const placement = useCardPreview(ref, preview, PREVIEW_WIDTH, tapPreview);
+  // The symbols are decorative: the name says which modifier is active or was silenced.
+  const kind = glow ? summary.modifiers[glow.index] : undefined;
+  const state =
+    kind === undefined || glow === null
+      ? ''
+      : glow.state === 'live' && leading
+        ? `, active: ${modifierText(kind)}`
+        : glow.state === 'silenced' && !leading
+          ? `, ${modifierText(kind)} silenced`
+          : '';
 
   return (
     <>
       <div
         ref={ref}
         role="img"
-        aria-label={label}
+        aria-label={`${label}${state}`}
         tabIndex={focusable ? 0 : undefined}
         className="relative w-card-w shrink-0 select-none rounded-md"
         data-card-id={card.cardId}

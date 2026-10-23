@@ -113,16 +113,30 @@
   border-style: dashed;
 }
 
-/* The effect that would fire stays full strength (with an ink bar); the other one fades. */
+/* The effect that would fire is highlighted as a box, the same way for both branches (user
+   2026-10-23): a fill tinted with the branch's hint-band colour (Primary = the turn colour,
+   Secondary = the Secondary amber, as on the table-size band) plus an ink bar; the other effect
+   fades. Ink text stays >= 7:1 on either tint in both themes; the verdict chip's symbol and
+   words carry the meaning, so colour is never the only cue. */
 .spell-card[data-verdict='met'] .spell-sec,
 .spell-card[data-verdict='unmet'] .spell-pri {
   opacity: 0.4;
 }
+.spell-card[data-verdict='met'] .spell-pri {
+  --spell-fire: var(--ui-turn);
+  --spell-fire-mix: 24%;
+}
+.spell-card[data-verdict='unmet'] .spell-sec {
+  --spell-fire: var(--color-hint-secondary, #d97706);
+  --spell-fire-mix: 34%;
+}
 .spell-card[data-verdict='met'] .spell-pri,
 .spell-card[data-verdict='unmet'] .spell-sec {
-  box-shadow: -2cqw 0 0 -1.4cqw var(--ink);
-  padding-left: 1.6cqw;
-  margin-left: -1.6cqw;
+  background: color-mix(in srgb, var(--spell-fire) var(--spell-fire-mix), var(--paper));
+  box-shadow: inset 1.2cqw 0 0 var(--ink);
+  border-radius: 1.2cqw;
+  padding: 1cqw 1.6cqw 1.2cqw 3.2cqw;
+  margin: 0 -1.6cqw 0 -3.2cqw;
 }
 
 /* Table size: banner + the name, one size for every spell, wrapped between words (balanced) and

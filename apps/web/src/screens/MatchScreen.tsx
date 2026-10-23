@@ -122,7 +122,6 @@ function CartignonMatchScreen({
   const parts = snapshot.cartignon;
   const [showDebug, setShowDebug] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
-  const [logOpen, setLogOpen] = useState(false);
   // Hooks run before the early return below; the clock ticks only while it changes over time.
   const clock = useClock(snapshot.clock, snapshot.clockReceivedAt, view?.seat ?? null);
   if (!view || !parts) return <UnreadableMatch onHome={onHome} />;
@@ -147,8 +146,8 @@ function CartignonMatchScreen({
   const showNotices = snapshot.error || (outcome && !hideOutcome);
 
   // Full-window layout (TableLayout gives this screen the whole viewport): the table fills it,
-  // with the corner menu (theme, log, debug, leave) floating top right; the debug view replaces
-  // the table and scrolls.
+  // with the corner menu (theme, debug, leave) floating top right and the event log icon under
+  // it (CartignonTable); the debug view replaces the table and scrolls.
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <p className="sr-only">
@@ -161,20 +160,7 @@ function CartignonMatchScreen({
         {(close) => (
           <>
             <ThemeToggle className="justify-start" />
-            {!showDebug && (
-              <button
-                type="button"
-                className={toolbarButtonClass}
-                aria-pressed={logOpen}
-                onClick={() => {
-                  setLogOpen((shown) => !shown);
-                  close();
-                }}
-                data-testid="log-toggle"
-              >
-                Log
-              </button>
-            )}
+            {/* The event log is its own corner icon on the table (LogCorner). */}
             <button
               type="button"
               className={toolbarButtonClass}
@@ -243,10 +229,6 @@ function CartignonMatchScreen({
           log={narrateEvents(snapshot.eventLog, parts.public, view.seat)}
           eventLog={snapshot.eventLog}
           notices={showNotices ? notices : null}
-          logOpen={logOpen}
-          onCloseLog={() => {
-            setLogOpen(false);
-          }}
           {...(opponentLabel === undefined ? {} : { opponentLabel })}
           onCommand={(command) => {
             onAction(commandToAction(command));

@@ -1,9 +1,4 @@
-import {
-  createCardIndex,
-  expandTestSeed,
-  stackAtk,
-  type CartignonMatchState,
-} from '@cartignon/game-core';
+import { expandTestSeed, type CartignonMatchState } from '@cartignon/game-core';
 import type { CartignonSeatEvent } from '@cartignon/protocol';
 import { describe, expect, it } from 'vitest';
 import { commandToAction } from '../src/lib/cartignon';
@@ -18,15 +13,16 @@ const SECTION_ORDER: readonly TutorialSection[] = ['card', 'flow', 'combat', 'go
 const MAX_ITERATIONS = 200;
 
 function scriptDefIds(): string[] {
-  const { preset, prelude, botMoves, steps } = TUTORIAL_SCRIPT;
+  const { preset, prelude, botMoves, steps, mulliganDraw } = TUTORIAL_SCRIPT;
   const ids = [...preset.hands[0], ...preset.hands[1], ...(preset.graveyard ?? [])];
-  ids.push(...(preset.deckTop ?? []));
+  ids.push(...(preset.deckTop ?? []), ...(mulliganDraw?.defIds ?? []));
   for (const command of [...prelude.map((m) => m.command), ...botMoves]) {
-    if (command.type !== 'endTurn') ids.push(command.defId);
+    if ('defId' in command) ids.push(command.defId);
   }
   for (const step of steps) {
     if (step.anatomy) ids.push(step.anatomy.defId);
-    if (step.gate.kind === 'command' && step.gate.command.type !== 'endTurn') {
+    if (step.zoom) ids.push(step.zoom.defId);
+    if (step.gate.kind === 'command' && 'defId' in step.gate.command) {
       ids.push(step.gate.command.defId);
     }
     for (const target of step.targets ?? []) {
@@ -88,13 +84,23 @@ describe('tutorial script', () => {
     expect(new Set(TUTORIAL_SCRIPT.steps.map((s) => s.id)).size).toBe(TUTORIAL_SCRIPT.steps.length);
   });
 
-  it('starts behind, 128 to 153, with the human on turn', () => {
+  it('starts at the beginning of a round: empty stacks, the bot (P1) in its Base step', () => {
     const built = buildTutorial();
     const state = built.snapshot.state as CartignonMatchState;
-    const cards = createCardIndex(built.catalog);
-    expect(stackAtk(cards, state.round.board, 0)).toBe(128);
-    expect(stackAtk(cards, state.round.board, 1)).toBe(153);
-    expect(state.round.phase).toMatchObject({ kind: 'turn', active: 0 });
+    expect(state.round.board.zones.stacks).toEqual([[], []]);
+    expect(state.round.phase).toMatchObject({ kind: 'p1Base', active: 1 });
+    expect(state.round.board.zones.hands[0]).toHaveLength(9);
+  });
+
+  it('zooms only minions of the own hand', () => {
+    const built = buildTutorial();
+    const hand = new Set(TUTORIAL_SCRIPT.preset.hands[0]);
+    for (const step of TUTORIAL_SCRIPT.steps) {
+      const defId = step.zoom?.defId;
+      if (defId === undefined) continue;
+      expect(hand.has(defId), step.id).toBe(true);
+      expect(built.catalog.find((d) => d.defId === defId)?.kind, step.id).toBe('creature');
+    }
   });
 
   it('plays to the end on script: round and token won by seat 0, match over', async () => {
@@ -104,12 +110,47 @@ describe('tutorial script', () => {
     expect(state.offScript).toBe(false);
     expect(state.status).toBe('finished');
 
-    const blue = match.cardIdOf('C-D4');
+    const id = match.cardIdOf;
+    const blue = id('C-D4');
+    // The Mulligan really happened and drew the scripted cards (deck ordered for the shuffle).
+    expect(events).toContainEqual({ type: 'mulliganed', seat: 0, returned: 9, drawnCount: 5 });
+    expect(events).toContainEqual({
+      type: 'cardsDrawn',
+      seat: 0,
+      reason: 'mulligan',
+      cardIds: ['C-F2', 'C-C2', 'C-D3', 'S-15', 'C-D4'].map(id),
+    });
+    // Nullify, then the bot's second Base and the human's Base.
+    expect(events).toContainEqual({
+      type: 'nullified',
+      seat: 0,
+      cardId: id('C-F2'),
+      nullifiedCardId: id('C-G3'),
+    });
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'creaturePlayed',
+        seat: 1,
+        cardId: id('C-G2'),
+        role: 'p1Base',
+      }),
+    );
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'creaturePlayed',
+        seat: 0,
+        cardId: id('C-C2'),
+        role: 'p2Base',
+      }),
+    );
+    expect(events).toContainEqual(
+      expect.objectContaining({ type: 'spellPlayed', seat: 0, branch: 'primary' }),
+    );
     expect(events).toContainEqual({
       type: 'roundOver',
       reason: 'opponentAhead',
       seat: 1,
-      atk: [363, 299],
+      atk: [317, 249],
     });
     expect(events).toContainEqual(
       expect.objectContaining({
@@ -123,9 +164,6 @@ describe('tutorial script', () => {
     });
     expect(events).toContainEqual(
       expect.objectContaining({ type: 'matchOver', reason: 'allTokensHeld', winner: 0 }),
-    );
-    expect(events).toContainEqual(
-      expect.objectContaining({ type: 'spellPlayed', seat: 0, branch: 'secondary' }),
     );
     expect(match.getSnapshot().view?.outcome).not.toBeNull();
     match.leave();

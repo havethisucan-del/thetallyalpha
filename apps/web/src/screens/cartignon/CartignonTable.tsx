@@ -1,5 +1,5 @@
 import type { ActionResultMessage, CartignonCommand } from '@cartignon/protocol';
-import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { EventLogEntry } from '../../lib/cartignon';
 import { selectedHandCard, tapHandCard } from '../../match/cartignon/interaction';
 import {
@@ -8,15 +8,16 @@ import {
   tokenCount,
   turnBannerText,
 } from '../../match/cartignon/labels';
+import { mergeHistory, unreadCount } from '../../match/cartignon/logHistory';
 import { modifierGlows } from '../../match/cartignon/modifierGlow';
 import type { NarrationLine } from '../../match/cartignon/narration';
 import type { TableModel } from '../../match/cartignon/tableModel';
 import { ActionAnnouncer } from './ActionAnnouncer';
-import { ActionLog } from './ActionLog';
 import { ActionBar } from './ActionBar';
 import { CenterStrip } from './CenterStrip';
 import { ChoiceSheet } from './ChoiceSheet';
 import { HandRow, handRows } from './HandRow';
+import { LogCorner } from './LogCorner';
 import { LogToast } from './LogToast';
 import { OpponentChoosing } from './OpponentChoosing';
 import { OpponentHand } from './OpponentHand';
@@ -56,11 +57,13 @@ interface SentAction {
  * line, the graveyard, tokens and deck on the line, the own stack below it and the own hand fanned
  * at the bottom; won tokens sit in the holders' corners. Floating, unboxed extras: each seat's ATK
  * badge beside its stack, the action dock (turn pill, clock, commands) beside the own hand, a tiny
- * round counter top right, transient toasts for results and narration, and the full log behind
- * the corner menu (`logOpen`). A pending choice opens as a bottom sheet in place of the hand.
+ * round counter top right, transient toasts for results and narration that fly into the corner
+ * log icon (right edge, under the menu; `LogCorner`: hover preview, click pins the full history).
+ * A pending choice opens as a bottom sheet in place of the hand.
  * All data comes from the model; every action goes through `onCommand` (legal entries unchanged,
  * or a choice selection sent only on Confirm). Local UI state: the tapped hand card, whether the
- * choice sheet is hidden, and the last sent action (for announcements).
+ * choice sheet is hidden, the last sent action (for announcements) and the log history / unread
+ * state.
  */
 export function CartignonTable({
   model,
@@ -72,8 +75,6 @@ export function CartignonTable({
   log = [],
   eventLog = [],
   opponentLabel = 'Opponent',
-  logOpen = false,
-  onCloseLog,
 }: {
   model: TableModel;
   canAct: boolean;
@@ -83,15 +84,15 @@ export function CartignonTable({
   /** Errors / outcome, shown over the middle of the table. */
   notices?: ReactNode;
   palette?: TablePalette;
-  /** Narrated events (`narrateEvents`), oldest first; the log panel shows them newest first. */
+  /**
+   * Narrated events (`narrateEvents`), oldest first: the newest is the toast; the table keeps
+   * every line it sees as the corner log's history (newest first there).
+   */
   log?: readonly NarrationLine[];
   /** The rolling event log (oldest first); drives the modifier glow on stack cards. */
   eventLog?: readonly EventLogEntry[];
   /** Name shown under the opponent's hand (e.g. `Bot · L3 Skilled`). */
   opponentLabel?: string;
-  /** The full action log panel is open (toggled from the corner menu). */
-  logOpen?: boolean;
-  onCloseLog?: () => void;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hiddenChoiceId, setHiddenChoiceId] = useState<number | null>(null);
@@ -132,6 +133,25 @@ export function CartignonTable({
     setSelectedId(null);
     onCommand(command);
   };
+
+  // Event history (corner log): every line seen, beyond the rolling log's cap. Adjusting state
+  // during render is the React pattern for derived state; `mergeHistory` returns the same array
+  // when nothing is new, so this settles at once.
+  const [history, setHistory] = useState<readonly NarrationLine[]>(() => mergeHistory([], log));
+  const merged = mergeHistory(history, log);
+  if (merged !== history) setHistory(merged);
+  // Unread: lines after the newest one seen with the log open (the lines already there when the
+  // table mounts count as seen); the toast still in the air is not counted until it lands.
+  const [seenKey, setSeenKey] = useState<string | null>(() => log.at(-1)?.key ?? null);
+  const [landedKey, setLandedKey] = useState<string | null>(null);
+  const latest = log.at(-1) ?? null;
+  const newestKey = merged.at(-1)?.key ?? null;
+  const flying = latest !== null && latest.key !== landedKey && latest.key !== seenKey;
+  const unread = unreadCount(merged, seenKey, flying ? latest.key : null);
+  const markRead = useCallback(() => {
+    setSeenKey(newestKey);
+  }, [newestKey]);
+  const logButtonRef = useRef<HTMLButtonElement>(null);
 
   const fresh = lastResult !== null && lastResult !== sent.resultBefore ? lastResult : null;
   const announcement = fresh
@@ -234,24 +254,18 @@ export function CartignonTable({
 
       <div className="ct-toasts">
         <ActionAnnouncer announcement={announcement} messageKey={fresh?.actionId ?? null} />
-        <LogToast line={log.at(-1) ?? null} />
+        <LogToast line={latest} target={logButtonRef} onLanded={setLandedKey} />
       </div>
 
       {notices && <div className="ct-notices">{notices}</div>}
 
-      <div className="ct-log" hidden={!logOpen} data-testid="log-panel">
-        <ActionLog lines={log} />
-        {onCloseLog && (
-          <button
-            type="button"
-            className="ink-line absolute top-1 right-1 min-h-target min-w-target rounded-md bg-paper-raised px-2 text-sm"
-            onClick={onCloseLog}
-            data-testid="log-close"
-          >
-            Close
-          </button>
-        )}
-      </div>
+      <LogCorner
+        history={history}
+        currentRound={center.round}
+        unread={unread}
+        onOpen={markRead}
+        buttonRef={logButtonRef}
+      />
     </div>
   );
 }

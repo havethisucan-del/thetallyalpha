@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { MyChoice } from '../src/match/cartignon/tableModel';
 import { ActionBar } from '../src/screens/cartignon/ActionBar';
+import { ActionLog } from '../src/screens/cartignon/ActionLog';
 import { CartignonTable } from '../src/screens/cartignon/CartignonTable';
 import { ChoiceSheet } from '../src/screens/cartignon/ChoiceSheet';
 import { tableModel } from './fixtures/cartignonTable';
@@ -223,19 +224,50 @@ describe('CartignonTable', () => {
     expect(html).toContain('Not castable now: It is not your turn.');
   });
 
-  it('renders the action log newest first', () => {
+  it('puts the event log behind a corner icon, closed, with the toast and live region', () => {
     const html = renderToStaticMarkup(
       createElement(CartignonTable, {
         model: tableModel(),
         canAct: true,
         onCommand: noop,
-        log: [
-          { key: '1:0', revision: 1, actor: 'mine', text: 'First line.' },
-          { key: '2:0', revision: 2, actor: 'theirs', text: 'Second line.' },
+        log: [{ key: '1:0', revision: 1, actor: 'mine', text: 'First line.' }],
+      }),
+    );
+    expect(html).toMatch(/<button[^>]*aria-expanded="false"[^>]*data-testid="log-toggle"/);
+    expect(html).toMatch(/<div[^>]*hidden=""[^>]*data-testid="log-panel"/);
+    expect(html).toContain('data-testid="log-toast"');
+    expect(html).toContain('data-testid="log-live"');
+  });
+
+  it('renders the detailed history grouped by round and turn, newest first', () => {
+    const html = renderToStaticMarkup(
+      createElement(ActionLog, {
+        currentRound: 2,
+        lines: [
+          { key: '1:0', revision: 1, actor: null, text: 'Round one.', startsRound: true },
+          {
+            key: '2:0',
+            revision: 2,
+            actor: 'mine',
+            text: 'First line.',
+            turn: { number: 1, side: 'mine' },
+            details: ['Activated: your Orange 3 — Buff +30 ATK.'],
+          },
+          { key: '3:0', revision: 3, actor: null, text: 'Round two.', startsRound: true },
+          {
+            key: '4:0',
+            revision: 4,
+            actor: 'theirs',
+            text: 'Second line.',
+            turn: { number: 1, side: 'theirs' },
+          },
         ],
       }),
     );
     expect(html).toContain('role="log"');
     expect(html.indexOf('Second line.')).toBeLessThan(html.indexOf('First line.'));
+    expect(html.indexOf('Round 2')).toBeLessThan(html.indexOf('Round 1'));
+    expect(html).toContain('Turn 1 · Opponent');
+    expect(html).toContain('Activated: your Orange 3 — Buff +30 ATK.');
   });
 });

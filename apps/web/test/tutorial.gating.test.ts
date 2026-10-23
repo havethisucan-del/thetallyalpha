@@ -42,42 +42,40 @@ describe('tutorial gating', () => {
     match.leave();
   });
 
-  it('allows exactly the gated command on a command step', () => {
-    const match = newMatch();
-    continueToGate(match);
-    const state = match.getTutorialState();
-    expect(state.step.id).toBe('flow-play');
-    const f3 = match.cardIdOf('C-F3');
-    expect(match.getSnapshot().cartignon?.private.legal).toEqual([
-      { type: 'playCreature', cardId: f3 },
-    ]);
-    // Legal for the engine, refused by the coach.
-    expect(match.sendAction(toCartignonAction({ type: 'endTurn' }))).toBeNull();
-    expect(match.getTutorialState()).toBe(state);
-    const action = commandToAction({ type: 'playCreature', cardId: f3 });
-    expect(match.sendAction(action)).not.toBeNull();
-    expect(match.getSnapshot().lastResult?.status).toBe('accepted');
-    expect(match.getTutorialState().step.id).toBe('flow-end-turn');
-    expect(match.getSnapshot().cartignon?.private.legal).toEqual([{ type: 'endTurn' }]);
-    match.leave();
-  });
-
   it('holds the bot until a watch step, then advances on the awaited event', async () => {
     const match = newMatch();
     continueToGate(match);
-    match.sendAction(commandToAction({ type: 'playCreature', cardId: match.cardIdOf('C-F3') }));
-    match.sendAction(commandToAction({ type: 'endTurn' }));
-    expect(match.getTutorialState().step.id).toBe('combat-bot-turn');
+    expect(match.getTutorialState().step.id).toBe('flow-bot-base');
     expect(match.getSnapshot().cartignon?.private.legal).toEqual([]);
     await match.whenIdle();
-    expect(match.getTutorialState().step.id).toBe('combat-nerf');
+    expect(match.getTutorialState().step.id).toBe('flow-mulligan');
     expect(match.getSnapshot().view?.phase.activeSeat).toBe(0);
     match.leave();
   });
 
-  it('turns gating off when the gated command is not legal (never stuck)', () => {
+  it('allows exactly the gated command on a command step', async () => {
+    const match = newMatch();
+    continueToGate(match);
+    await match.whenIdle();
+    expect(match.getTutorialState().step.id).toBe('flow-mulligan');
+    expect(match.getSnapshot().cartignon?.private.legal).toEqual([{ type: 'mulligan' }]);
+    expect(match.sendAction(commandToAction({ type: 'mulligan' }))).not.toBeNull();
+    const state = match.getTutorialState();
+    expect(state.step.id).toBe('flow-nullify');
+    const f2 = match.cardIdOf('C-F2');
+    expect(match.getSnapshot().cartignon?.private.legal).toEqual([{ type: 'nullify', cardId: f2 }]);
+    // Legal for the engine (a Base minion), refused by the coach.
+    expect(match.sendAction(commandToAction({ type: 'playCreature', cardId: f2 }))).toBeNull();
+    expect(match.getTutorialState()).toBe(state);
+    expect(match.sendAction(commandToAction({ type: 'nullify', cardId: f2 }))).not.toBeNull();
+    expect(match.getSnapshot().lastResult?.status).toBe('accepted');
+    expect(match.getTutorialState().step.id).toBe('flow-bot-rebase');
+    match.leave();
+  });
+
+  it('turns gating off when the gated command is not legal (never stuck)', async () => {
     const steps = TUTORIAL_SCRIPT.steps.map((step) =>
-      step.id === 'flow-play'
+      step.id === 'flow-mulligan'
         ? {
             ...step,
             gate: {
@@ -89,6 +87,7 @@ describe('tutorial gating', () => {
     );
     const match = newMatch({ ...TUTORIAL_SCRIPT, steps });
     continueToGate(match);
+    await match.whenIdle();
     expect(match.getTutorialState().offScript).toBe(true);
     const legal = match.getSnapshot().cartignon?.private.legal ?? [];
     expect(legal.length).toBeGreaterThan(1);
@@ -96,11 +95,14 @@ describe('tutorial gating', () => {
     match.leave();
   });
 
-  it('skip stops the coach and lifts the gate', () => {
+  it('skip stops the coach, releases the bot and lifts the gate', async () => {
     const match = newMatch();
     match.skip();
     expect(match.getTutorialState().status).toBe('skipped');
     expect(match.continue()).toBe(false);
+    // The round starts on the bot's turn: it must move on its own after a skip.
+    await match.whenIdle();
+    expect(match.getSnapshot().view?.phase.activeSeat).toBe(0);
     expect(match.getSnapshot().cartignon?.private.legal.length).toBeGreaterThan(0);
     match.leave();
   });

@@ -24,7 +24,7 @@ import './spellCard.css';
  *
  * Table size: banner + the name, wrapped between words (balanced) in ONE size for every spell
  * (`SPELL_NAME_SMALL_CQW`), plus the optional `footer` (the hint band). Enlarged (hover, keyboard
- * focus, touch long-press; `useCardPreview`): the full text and, with a hint, the verdict chip; the
+ * focus, touch long-press or double tap; `useCardPreview`): the full text and, with a hint, the verdict chip; the
  * effect that would fire stays full strength, the other fades. The enlarged copy is decorative
  * (`aria-hidden`); the card's accessible name carries the name and the hint.
  */

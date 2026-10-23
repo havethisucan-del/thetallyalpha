@@ -3,7 +3,8 @@
  * absolutely placed on one field that fills the viewport; sizes derive from one table card width
  * (--tcw, clamped to the viewport) so the layout scales from 375x812 portrait to 1920x1080.
  *
- *   top-left: opponent tokens            top-right: round info + corner menu (MatchScreen)
+ *   top-left: opponent tokens            top-right: round info + corner menu (MatchScreen),
+ *                                        event log icon under the menu (LogCorner)
  *                   opponent hand (card backs, fanned arc)
  *                   opponent stack (+ ATK badge, traps)
  *   G pile ───────── tokens on the middle line ───────── D pile
@@ -57,6 +58,11 @@
   --corner-mine-b: var(--gut);
   --dock-b: var(--gut);
   --dock-max-w: max(9rem, calc((100vw - var(--hand-span)) / 2 - 2 * var(--gut)));
+
+  /* Touch: a double tap on a card opens its enlarged preview (useCardPreview), so the browser's
+     double-tap zoom must not take the second tap (it zoomed into the small card face, which shows
+     only a spell's name). Panning and pinch zoom stay available. */
+  touch-action: manipulation;
 
   position: relative;
   display: grid;
@@ -526,12 +532,106 @@
   transform: translateX(-50%);
 }
 
-.ct-log {
+/* --- Event log corner (LogCorner, 2026-10-23) ---------------------------------------------------
+ * Right edge, directly under the corner menu (44px button + 8px), clear of both token corners
+ * (left side). The panel drops down from the icon, right-aligned; the pinned history scrolls
+ * inside it. The root's bottom padding bridges the gap to the panel so the hover preview does not
+ * close on the way down. */
+.ct-logcorner {
   position: absolute;
-  top: calc(var(--gut) + 52px);
+  top: calc(max(var(--gut), env(safe-area-inset-top)) + 52px);
   right: var(--gut);
   z-index: 45;
-  width: min(calc(100vw - 2 * var(--gut)), 24rem);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.ct-log {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: min(calc(100vw - 2 * var(--gut)), 26rem);
+}
+.ct-log[data-mode='peek'] {
+  width: min(calc(100vw - 2 * var(--gut)), 22rem);
+}
+/* Hover bridge over the 6px gap. */
+.ct-log::before {
+  content: '';
+  position: absolute;
+  inset: -8px 0 auto;
+  height: 8px;
+}
+/* Portrait: the opponent's fanned hand reaches the right edge under the top bar, so the icon sits
+   in the top bar itself, left of the menu (the round counter moves left of it). */
+@media (orientation: portrait) {
+  .ct-logcorner {
+    top: max(var(--gut), env(safe-area-inset-top));
+    right: calc(var(--gut) + 52px);
+  }
+  .ct-log {
+    right: -52px;
+  }
+  .ct-field .ct-round {
+    right: calc(var(--gut) + 108px);
+  }
+}
+.ct-log-scroll {
+  max-height: min(62dvh, calc(100dvh - 9rem));
+}
+/* Each detail hangs from its line with a drawn elbow (an arrow glyph is not in the UI font). */
+.ct-log-details > li {
+  position: relative;
+  padding-left: 0.95em;
+}
+.ct-log-details > li::before {
+  content: '';
+  position: absolute;
+  left: 0.15em;
+  top: 0.2em;
+  width: 0.5em;
+  height: 0.5em;
+  border-left: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+}
+
+/* Unread badge: pops in each time a toast lands. */
+.ct-log-badge {
+  animation: ct-badge-pop 260ms ease-out;
+}
+@keyframes ct-badge-pop {
+  from {
+    transform: scale(0.4);
+  }
+  60% {
+    transform: scale(1.25);
+  }
+}
+
+/* The toast leaves for the log icon: it moves to the icon's centre (--fly-x/-y, measured in
+   LogToast) while shrinking and fading, so it reads as "filed into the log". */
+.ct-toast[data-phase='fly'] {
+  animation: ct-toast-fly 560ms cubic-bezier(0.45, 0, 0.6, 1) forwards;
+}
+@keyframes ct-toast-fly {
+  to {
+    transform: translate(var(--fly-x, 0), var(--fly-y, 0)) scale(0.08);
+    opacity: 0.15;
+  }
+}
+@keyframes ct-toast-fade {
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ct-toast[data-phase='fly'] {
+    animation: ct-toast-fade 400ms linear forwards;
+  }
+  .ct-log-badge {
+    animation: none;
+  }
 }
 
 .ct-round-over {

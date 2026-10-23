@@ -3,7 +3,11 @@ import type { EventLogEntry } from '../../lib/cartignon';
 import type { Seat } from '../../lib/synthetic';
 import { colorInfo } from './colors';
 import { roundOutcomeText, roundOverText } from './labels';
+import { modifierLabel } from './minionArt';
+import { spellText } from './spellArt';
 import { otherSeat, outcomeView, tableCard, type Side } from './tableModel';
+
+type ModifierKind = Extract<CartignonSeatEvent, { type: 'modifierLive' }>['kind'];
 
 /**
  * Action log narration (table): turns the rolling event log into short sentences from this
@@ -13,12 +17,28 @@ import { otherSeat, outcomeView, tableCard, type Side } from './tableModel';
  * are used only for this seat's own draws.
  */
 
+/**
+ * The turn a line happened in, for grouping the history: the round's turn number and who was on
+ * turn, or `'end'` for the round result lines (after `roundOver`, before the next round).
+ */
+export type NarrationTurn = { number: number; side: Side } | 'end';
+
 export interface NarrationLine {
   key: string;
   revision: number;
   /** Who did it (`null` for table-wide events such as a round result). */
   actor: Side | null;
   text: string;
+  /**
+   * What the action triggered, shown only in the detailed history (2026-10-23): the spell's
+   * Condition verdict and the effect that fired, modifier activations and silencing. Absent when
+   * nothing followed.
+   */
+  details?: string[];
+  /** The turn this happened in (absent when the log does not reach back to that turn's start). */
+  turn?: NarrationTurn;
+  /** This line opens a round (`roundStarted`): the history starts a new round group here. */
+  startsRound?: true;
 }
 
 /** How many sentences the table keeps (the event log itself keeps `EVENT_LOG_LIMIT` events). */
@@ -49,12 +69,28 @@ function capitalize(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+/** A modifier in history sentences: its kind plus the printed amount, e.g. `Buff +30 ATK`. */
+function modifierPhrase(kind: ModifierKind): string {
+  switch (kind) {
+    case 'buffSelf':
+      return `Buff ${modifierLabel(kind)}`;
+    case 'nerfEnemyLeader':
+      return `Nerf ${modifierLabel(kind)} on the enemy Leading card`;
+    default:
+      return modifierLabel(kind);
+  }
+}
+
 class Narrator {
   readonly lines: NarrationLine[] = [];
   /** The spell sentence still collecting its draw clauses. */
   #spell: { line: NarrationLine; head: string; clauses: string[] } | null = null;
   /** This seat's last own draw (ids), named in the next draw clause. */
   #ownDraw: string[] = [];
+  /** The turn in progress (from `turnStarted`; `'end'` after `roundOver`). */
+  #turn: NarrationTurn | undefined;
+  /** The last line pushed; what follows in the same step is added to its `details`. */
+  #anchor: NarrationLine | null = null;
 
   readonly pub: CartignonPublicView;
   readonly mySeat: Seat;
@@ -82,9 +118,38 @@ class Narrator {
   }
 
   #push(entry: EventLogEntry, actor: Side | null, text: string): NarrationLine {
-    const line = { key: entry.key, revision: entry.revision, actor, text };
+    const line: NarrationLine = { key: entry.key, revision: entry.revision, actor, text };
+    if (this.#turn !== undefined) line.turn = this.#turn;
     this.lines.push(line);
+    this.#anchor = line;
     return line;
+  }
+
+  /**
+   * Adds a detail to the line of the same step (the play or cast that caused it). Without one,
+   * `standalone` decides whether it becomes its own line (an activation does; a silencing alone,
+   * e.g. at round cleanup, is noise).
+   */
+  #detail(entry: EventLogEntry, actor: Side | null, text: string, standalone: boolean): void {
+    const anchor = this.#anchor;
+    if (anchor !== null && anchor.revision === entry.revision) {
+      (anchor.details ??= []).push(text);
+      return;
+    }
+    if (standalone) this.#push(entry, actor, text);
+  }
+
+  #modifierDetail(
+    entry: EventLogEntry,
+    event: Extract<CartignonSeatEvent, { type: 'modifierLive' | 'modifierSilenced' }>,
+  ): void {
+    const card = `${this.#whose(event.seat)} ${this.#name(event.cardId)}`;
+    const what = modifierPhrase(event.kind);
+    if (event.type === 'modifierLive') {
+      this.#detail(entry, this.#side(event.seat), `Activated: ${card} — ${what}.`, true);
+    } else {
+      this.#detail(entry, this.#side(event.seat), `Silenced: ${card} — ${what}.`, false);
+    }
   }
 
   closeSpell(): void {
@@ -129,13 +194,34 @@ class Narrator {
             ? ''
             : ` through ${this.#whose(otherSeat(event.seat))} ${this.#name(event.playedVia)}`;
         const head = `${capitalize(this.#who(event.seat))} cast ${this.#name(event.cardId)}${via} (${event.branch} effect)`;
-        this.#spell = {
-          line: this.#push(entry, this.#side(event.seat), `${head}.`),
-          head,
-          clauses: [],
-        };
+        const line = this.#push(entry, this.#side(event.seat), `${head}.`);
+        // Condition verdict and the printed effect that fired (catalog text, no rule logic).
+        const printed = spellText(tableCard(this.pub, event.cardId).defId);
+        const effect = printed ? ` — ${printed[event.branch]}` : '';
+        line.details = [
+          event.branch === 'primary'
+            ? `Condition met: Primary fired${effect}`
+            : `Condition not met: Secondary fired${effect}`,
+        ];
+        this.#spell = { line, head, clauses: [] };
         return;
       }
+      case 'turnStarted':
+        this.closeSpell();
+        this.#turn = { number: event.turnNumber, side: this.#side(event.seat) };
+        return;
+      case 'modifierLive':
+      case 'modifierSilenced':
+        this.#modifierDetail(entry, event);
+        return;
+      case 'modifierCopied':
+        this.#detail(
+          entry,
+          this.#side(event.seat),
+          `${capitalize(this.#who(event.seat))} copied the ${modifierPhrase(event.kind)} of ${this.#name(event.sourceCardId)}.`,
+          true,
+        );
+        return;
       case 'spellResolved':
       case 'turnEnded':
         this.closeSpell();
@@ -168,8 +254,13 @@ class Narrator {
         return;
       }
       default: {
+        // Grouping: a new round has no turn yet; the result lines form the round's end group.
+        if (event.type === 'roundStarted') this.#turn = undefined;
+        if (event.type === 'roundOver') this.#turn = 'end';
         const text = this.#simple(event);
-        if (text !== null) this.#push(entry, this.#actor(event), text);
+        if (text === null) return;
+        const line = this.#push(entry, this.#actor(event), text);
+        if (event.type === 'roundStarted') line.startsRound = true;
       }
     }
   }
@@ -217,6 +308,8 @@ class Narrator {
         return `${capitalize(this.#who(event.seat))} armed the trap ${this.#name(event.cardId)}.`;
       case 'trapTriggered':
         return `${capitalize(this.#whose(event.seat))} trap ${this.#name(event.cardId)} triggered (${event.outcome}).`;
+      case 'trapLapsed':
+        return `${capitalize(this.#whose(event.seat))} trap ${this.#name(event.cardId)} lapsed.`;
       case 'controlTaken':
         return `${capitalize(this.#who(event.seat))} took control of ${this.#name(event.cardId)}.`;
       case 'creatureRemoved': {

@@ -153,26 +153,56 @@
   height: auto;
   overflow: visible;
 }
+/*
+ * Modifier symbols (user 2026-10-23, supersedes the 2026-10-22 "full strength on the Leading
+ * card" rule): no symbol is filled with colour. Every printed symbol is drawn PLAIN - hollow, ink
+ * outline only, the card colour shows through - on every card (hand, stacks, graveyard, choices).
+ * The only highlighted symbol is the ACTIVE modifier: the Leading card's live slot
+ * (`[data-mods='active']` + `[data-glow='live']`), filled white with the amber glow. On a covered
+ * card a SILENCED symbol (its slot was live, then the card was covered or negated) is removed:
+ * not drawn (the slot keeps its place so the other symbols stay at their positions), faded out
+ * at the moment it is silenced.
+ */
+.minion-mod {
+  transition:
+    opacity 320ms ease-out,
+    visibility 0s;
+}
 .minion-sym-f {
-  fill: #fff;
+  fill: none;
 }
 .minion-sym-o {
-  fill: var(--line-color);
+  fill: none;
   stroke: var(--line-color);
   stroke-width: 3;
   stroke-linejoin: round;
 }
 
-/* Modifier glow, in the style of the viewer's match tokens: amber edge + soft pulsing halo.
-   Blur radii have a px floor so the glow still reads on a 64 px card. */
-.minion-mod[data-glow='live'] svg {
+.minion-card[data-mods='active'] .minion-mod[data-glow='live'] .minion-sym-f {
+  fill: #fff;
+}
+.minion-card[data-mods='active'] .minion-mod[data-glow='live'] .minion-sym-o {
+  fill: var(--line-color);
+  stroke-width: 3;
+}
+
+/* The active modifier's glow, in the style of the viewer's match tokens: amber edge + soft
+   pulsing halo. Blur radii have a px floor so the glow still reads on a 64 px card. */
+.minion-card[data-mods='active'] .minion-mod[data-glow='live'] svg {
   filter: drop-shadow(0 0 max(1px, 0.7cqw) var(--cartignon-token-edge))
     drop-shadow(0 0 max(2.5px, 2.5cqw) var(--cartignon-token-glow))
     drop-shadow(0 0 max(2.5px, 2.5cqw) var(--cartignon-token-glow));
   animation: minion-mod-glow 2.4s ease-in-out infinite;
 }
-.minion-mod[data-glow='silenced'] {
-  opacity: 0.45;
+
+/* Silenced on a covered card: removed from the face. */
+.minion-card[data-mods='inactive'] .minion-mod[data-glow='silenced'] {
+  opacity: 0;
+  visibility: hidden;
+  /* Fade first, then leave the accessibility/hit tree. */
+  transition:
+    opacity 320ms ease-out,
+    visibility 0s linear 320ms;
 }
 
 @keyframes minion-mod-glow {
@@ -183,26 +213,7 @@
   }
 }
 
-/*
- * Not the Leading card (hand, covered stack cards, graveyard, choices; user 2026-10-22): the printed
- * symbols are drawn HOLLOW - ink outline only, the card colour shows through - so the full-strength
- * white symbols of the Leading card and its live glow are unmistakable. Shape and position still
- * read at 64 px. A modifier that is live keeps its full look and glow wherever it is.
- * Silenced (was live, then covered or negated) is hollow AND faded (45 %), so the two states stay
- * distinguishable: hollow = "printed, not in effect here", faint hollow = "was in effect, now off".
- */
-.minion-card[data-mods='inactive'] .minion-mod:not([data-glow='live']) .minion-sym-f {
-  fill: none;
-}
-.minion-card[data-mods='inactive'] .minion-mod:not([data-glow='live']) .minion-sym-o {
-  fill: none;
-  stroke-width: 3.5;
-}
-.minion-card[data-mods='inactive'] .minion-mod:not([data-glow='live']) .minion-mod-label {
-  opacity: 0.8;
-}
-
-/* Enlarged view only: a text label next to each symbol. */
+/* Enlarged view only: a text label next to each symbol (plain symbols: slightly softer label). */
 .minion-mod-label {
   position: absolute;
   left: calc(100% + 2cqw);
@@ -217,10 +228,19 @@
     sans-serif;
   white-space: nowrap;
 }
+.minion-mod:not([data-glow='live']) .minion-mod-label,
+.minion-card[data-mods='inactive'] .minion-mod-label {
+  opacity: 0.8;
+}
 
-/* Reduced motion: the glow stays static (the preview: cardFace.css). */
+/* Reduced motion: the glow stays static and a silenced symbol simply disappears (the preview:
+   cardFace.css). */
 @media (prefers-reduced-motion: reduce) {
-  .minion-mod[data-glow='live'] svg {
+  .minion-card[data-mods='active'] .minion-mod[data-glow='live'] svg {
     animation: none;
+  }
+  .minion-mod,
+  .minion-card[data-mods='inactive'] .minion-mod[data-glow='silenced'] {
+    transition: none;
   }
 }

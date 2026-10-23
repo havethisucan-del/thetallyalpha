@@ -89,11 +89,14 @@
   --color-ahead: #047857;
   --color-on-ahead: #ffffff;
 
-  /* Secondary spell hint: amber-100 fill, amber-700 edge (4.4:1 against the fill, >= 3:1 on
-     both card faces), slate-900 ink (15.5:1). A different hue AND shape from Primary (solid turn). */
-  --color-hint-secondary: #fef3c7;
+  /* Secondary spell hint (2026-10-23: a solid amber band, highlighted like the solid turn-colour
+     Primary band; the pale amber-100 fill before nearly vanished on the spell paper). Amber-600
+     fill, line-ink text 5.4:1 (the band's words carry the meaning, colour is a second cue); the
+     band is 2.5:1 against the spell paper and keeps its ink rule. Also tints the Secondary box of
+     the enlarged spell (spellCard.css). The edge is amber-700, kept for borders. */
+  --color-hint-secondary: #d97706;
   --color-hint-secondary-edge: #b45309;
-  --color-on-hint-secondary: #0f172a;
+  --color-on-hint-secondary: #211a12;
 }
 
 /*

@@ -14,6 +14,7 @@ export const TARGET_SELECTORS: Readonly<Record<Exclude<TargetId, `card:${string}
   'their-atk': '[data-testid="theirs-atk"]',
   hand: '[data-testid="hand"]',
   'end-turn': '[data-testid="global-endTurn"]',
+  mulligan: '[data-testid="global-mulligan"]',
   'card-actions': '[data-testid="card-actions"]',
   // The tokens on the middle line plus both corners where won tokens lie.
   'token-track':

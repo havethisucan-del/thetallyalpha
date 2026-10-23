@@ -183,11 +183,16 @@ export class TutorialMatch implements MatchSource {
     this.#controller.observe(parts.events);
   }
 
-  /** Releases the scripted bot on "watch the bot" steps; checks that a gated command is legal. */
+  /**
+   * Releases the scripted bot on "watch the bot" steps (and for good once skipped: the match may
+   * start on the bot's turn, which must not hang); checks that a gated command is legal.
+   */
   #onStepChange(): void {
     const state = this.#controller.state;
     this.#bot.setReleased(
-      state.offScript || (state.status === 'running' && state.step.gate.kind === 'event'),
+      state.offScript ||
+        state.status === 'skipped' ||
+        (state.status === 'running' && state.step.gate.kind === 'event'),
     );
     const command = this.#gatedCommand();
     const parts = this.#inner.getSnapshot().cartignon;

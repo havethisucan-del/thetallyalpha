@@ -10,6 +10,8 @@ import type { CartignonSeatEvent } from '@cartignon/protocol';
 export type ScriptCommand =
   | { readonly type: 'playCreature'; readonly defId: string }
   | { readonly type: 'playSpell'; readonly defId: string }
+  | { readonly type: 'nullify'; readonly defId: string }
+  | { readonly type: 'mulligan' }
   | { readonly type: 'endTurn' };
 
 /** A seat event the coach waits for (`type`, optionally the event's `seat`). */
@@ -50,6 +52,7 @@ export type TargetId =
   | 'their-atk'
   | 'hand'
   | 'end-turn'
+  | 'mulligan'
   | 'card-actions'
   | 'token-track'
   | 'center-strip'
@@ -57,8 +60,11 @@ export type TargetId =
   | 'piles'
   | `card:${string}`;
 
-/** Which part of a card face an anatomy step explains (the overlay may emphasise it). */
-export type AnatomyFocus = 'atk' | 'level' | 'colour' | 'modifiers' | 'leading' | 'spell';
+/** The part of a minion face a zoom step points at (`.minion-atk`, `.minion-lvl`, ...). */
+export type MinionPart = 'atk' | 'level' | 'colour' | 'modifiers';
+
+/** The part of a spell face an anatomy step points at (`.spell-cond`, `.spell-pri`, ...). */
+export type SpellPart = 'condition' | 'primary' | 'secondary';
 
 export interface TutorialStep {
   readonly id: string;
@@ -66,13 +72,16 @@ export interface TutorialStep {
   /** Plain English, at most `MAX_STEP_TEXT` characters. */
   readonly text: string;
   readonly targets?: readonly TargetId[];
-  /** Card-anatomy steps: the card face to show enlarged in the coach panel. */
-  readonly anatomy?: {
-    readonly defId: string;
-    readonly focus: AnatomyFocus;
-    /** Draw the modifiers as on a Leading card (solid) instead of hollow. */
-    readonly leading?: boolean;
-  };
+  /**
+   * Card steps: this card is enlarged in place on the table (lifted out of the hand fan) with
+   * `part` emphasised on its face. The card is also a highlight target.
+   */
+  readonly zoom?: { readonly defId: string; readonly part: MinionPart };
+  /**
+   * Spell steps: the full spell face (Condition / Primary / Secondary) in the coach panel, with
+   * `part` emphasised. A hand card is too small to show the spell text in place.
+   */
+  readonly anatomy?: { readonly defId: string; readonly part: SpellPart };
   readonly gate: StepGate;
 }
 
@@ -89,6 +98,13 @@ export interface TutorialScript {
   readonly preset: CartignonMatchPreset;
   /** Real commands applied with `step()` before the tutorial starts (the battle in progress). */
   readonly prelude: readonly PreludeMove[];
+  /**
+   * The Mulligan the script makes `seat` play, and the cards it must draw (in hand order). The
+   * Mulligan's shuffle is random, so `buildTutorial` orders the deck for it: see
+   * `orderDeckForMulligan`. It must be the first random step of the match (nothing before it may
+   * draw from the graveyard or shuffle), and `seat` must not play a card before it.
+   */
+  readonly mulliganDraw?: { readonly seat: Seat; readonly defIds: readonly string[] };
   /** The scripted bot's moves, in order (seat 1). */
   readonly botMoves: readonly ScriptCommand[];
   readonly steps: readonly TutorialStep[];

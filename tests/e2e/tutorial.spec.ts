@@ -38,10 +38,14 @@ async function expectUncovered(overlay: Locator, target: Locator): Promise<void>
 
 /** Performs the current gated command on the highlighted element. */
 async function performGatedAction(page: Page, overlay: Locator): Promise<void> {
-  const endTurn = page.locator(`[data-testid="global-endTurn"]${HIGHLIGHTED}`);
-  if ((await endTurn.count()) > 0) {
-    await expectUncovered(overlay, endTurn);
-    await endTurn.click();
+  // End Turn or Mulligan: a global command button.
+  const global = page.locator(
+    `[data-testid="global-endTurn"]${HIGHLIGHTED}, [data-testid="global-mulligan"]${HIGHLIGHTED}`,
+  );
+  if ((await global.count()) > 0) {
+    await expect(global).toHaveCount(1);
+    await expectUncovered(overlay, global);
+    await global.click();
     return;
   }
   const card = page.getByTestId('hand').locator(`[data-card-id]${HIGHLIGHTED}`);
@@ -51,7 +55,9 @@ async function performGatedAction(page: Page, overlay: Locator): Promise<void> {
   // The card's action bar appears and is highlighted too; only the scripted play is offered.
   const actions = page.locator(`[data-testid="card-actions"]${HIGHLIGHTED}`);
   await expect(actions).toBeVisible();
-  const play = actions.locator('[data-testid="card-playCreature"], [data-testid="card-playSpell"]');
+  const play = actions.locator(
+    '[data-testid="card-playCreature"], [data-testid="card-playSpell"], [data-testid="card-nullify"]',
+  );
   await expect(play).toHaveCount(1);
   await expectUncovered(overlay, play);
   await play.click();
@@ -69,6 +75,12 @@ async function playThrough(page: Page): Promise<string[]> {
     const hint = page.getByTestId('tutorial-hint');
     // Wait for the step to settle into one of its three gate forms.
     await expect(continueButton.or(hint)).toBeVisible();
+    // Card steps enlarge one hand card in place and ring the part the text explains.
+    if (step === 'card-level') {
+      await expect(page.locator('[data-testid="hand"] [data-tutorial-zoom="level"]')).toHaveCount(
+        1,
+      );
+    }
     // The table's own outcome card never competes with the coach.
     await expect(page.getByTestId('outcome')).toHaveCount(0);
     if (await continueButton.isVisible()) {
@@ -107,7 +119,9 @@ test.describe('tutorial', () => {
 
     const steps = await playThrough(page);
     expect(steps[0]).toBe('welcome');
-    expect(steps).toContain('flow-play');
+    for (const id of ['flow-mulligan', 'flow-nullify', 'flow-base', 'combat-spell']) {
+      expect(steps).toContain(id);
+    }
     expect(steps.at(-1)).toBe('goal-done');
 
     // Finish lands on the bot picker and the tutorial is recorded as completed.

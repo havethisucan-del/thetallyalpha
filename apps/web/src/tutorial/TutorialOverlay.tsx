@@ -8,9 +8,8 @@ import {
 } from 'react';
 import { buttonClass } from '../components/ui';
 import { spellText } from '../match/cartignon/spellArt';
-import { MinionFace } from '../screens/cartignon/MinionCard';
 import { SpellFace } from '../screens/cartignon/SpellCard';
-import { findTargets } from './targets';
+import { findTargets, targetSelector } from './targets';
 import type { TutorialMatch } from './tutorialMatch';
 import { SECTION_TITLES, type TutorialState } from './types';
 import './tutorialOverlay.css';
@@ -18,9 +17,11 @@ import './tutorialOverlay.css';
 /**
  * ADR-0018: the coach panel over the match table, a paper note on the manuscript tokens
  * (`tutorialOverlay.css`). It reads the coach state and the (gated) match snapshot from
- * `TutorialMatch`, shows the step text (polite live region), the enlarged card face on anatomy
- * steps, Continue / Finish / Skip, and marks the step's highlight targets with
- * `data-tutorial-highlight` (resolved through `targets.ts`). Persisting the outcome
+ * `TutorialMatch`, shows the step text (polite live region), the full spell face on spell
+ * anatomy steps, Continue / Finish / Skip, and marks the step's highlight targets with
+ * `data-tutorial-highlight` (resolved through `targets.ts`). On card steps (`step.zoom`) the
+ * hand card itself is enlarged in place: it gets `data-tutorial-zoom="<part>"`, and
+ * `tutorialOverlay.css` lifts it out of the fan and rings that part of its face. Persisting the outcome
  * (`markTutorial`) and leaving the match are the caller's job (`onFinish` / `onSkip`).
  *
  * Placement: right of the table's central column (hands, stacks) when the viewport leaves room
@@ -40,6 +41,7 @@ export interface TutorialOverlayProps {
 }
 
 export const HIGHLIGHT_ATTRIBUTE = 'data-tutorial-highlight';
+export const ZOOM_ATTRIBUTE = 'data-tutorial-zoom';
 
 export type CoachPlacement = 'top' | 'bottom' | 'side';
 
@@ -153,6 +155,14 @@ function currentTargets(state: TutorialState, cardIdOf: (defId: string) => strin
   return findTargets(document, state.step.targets ?? [], cardIdOf);
 }
 
+/** The hand card a card step enlarges in place (only in the own hand), or null. */
+function currentZoom(state: TutorialState, cardIdOf: (defId: string) => string): Element | null {
+  const zoom = state.step.zoom;
+  if (zoom === undefined || state.status !== 'running' || state.offScript) return null;
+  const selector = targetSelector(`card:${zoom.defId}`, cardIdOf);
+  return document.querySelector(`[data-testid="hand"] ${selector}`);
+}
+
 /**
  * Marks the current step's targets and decides where the note goes. Targets can appear without a
  * new snapshot (e.g. the card action bar after a hand card is tapped), so highlights and
@@ -172,9 +182,19 @@ function useTargets(
 
   useLayoutEffect(() => {
     const marked = new Set<Element>();
+    let zoomed: Element | null = null;
     let frame = 0;
     const refresh = () => {
       frame = 0;
+      const zoom = currentZoom(state, cardIdOf);
+      if (zoomed !== zoom) zoomed?.removeAttribute(ZOOM_ATTRIBUTE);
+      if (zoom !== null && state.step.zoom !== undefined) {
+        // Set before measuring, so placement sees the enlarged card.
+        if (zoom.getAttribute(ZOOM_ATTRIBUTE) !== state.step.zoom.part) {
+          zoom.setAttribute(ZOOM_ATTRIBUTE, state.step.zoom.part);
+        }
+      }
+      zoomed = zoom;
       const targets = currentTargets(state, cardIdOf);
       for (const element of marked) {
         if (!targets.includes(element)) {
@@ -232,6 +252,7 @@ function useTargets(
       window.removeEventListener('resize', schedule);
       window.removeEventListener('scroll', schedule, true);
       for (const element of marked) element.removeAttribute(HIGHLIGHT_ATTRIBUTE);
+      zoomed?.removeAttribute(ZOOM_ATTRIBUTE);
     };
   }, [noteRef, state, cardIdOf, revision, collapsed]);
 
@@ -260,33 +281,14 @@ const PLACEMENT_CLASS: Readonly<Record<CoachPlacement, string>> = {
   side: 'right-4 top-[60px] w-64 max-h-[calc(100dvh-76px)]',
 };
 
-function AnatomyCard({ state, tutorial }: { state: TutorialState; tutorial: TutorialMatch }) {
-  const snapshot = useSyncExternalStore(
-    tutorial.subscribe,
-    tutorial.getSnapshot,
-    tutorial.getSnapshot,
-  );
+/** Spell steps: the full face (Condition / Primary / Secondary), `part` ringed (CSS). */
+function AnatomyCard({ state }: { state: TutorialState }) {
   const anatomy = state.step.anatomy;
   if (anatomy === undefined) return null;
-  const summary = snapshot.cartignon?.public.defs[anatomy.defId];
-  if (summary?.kind === 'creature') {
-    return (
-      <div
-        className="flex justify-center"
-        data-testid="tutorial-anatomy"
-        data-focus={anatomy.focus}
-      >
-        {/* The face is width: 100% (minionCard.css); the wrapper sets the size. */}
-        <div className="w-24 sm:w-36">
-          <MinionFace summary={summary} labels leading={anatomy.leading ?? false} />
-        </div>
-      </div>
-    );
-  }
   const text = spellText(anatomy.defId);
   if (text === null) return null;
   return (
-    <div className="flex justify-center" data-testid="tutorial-anatomy" data-focus={anatomy.focus}>
+    <div className="flex justify-center" data-testid="tutorial-anatomy" data-part={anatomy.part}>
       <div className="w-32 sm:w-44">
         <SpellFace text={text} full />
       </div>
@@ -373,7 +375,7 @@ export function TutorialOverlay({ tutorial, onSkip, onFinish }: TutorialOverlayP
         className="flex min-h-0 flex-col gap-2 overflow-y-auto overscroll-contain"
         hidden={collapsed}
       >
-        <AnatomyCard state={state} tutorial={tutorial} />
+        <AnatomyCard state={state} />
         <p aria-live="polite" className="text-lg leading-snug" data-testid="tutorial-text">
           {state.step.text}
         </p>

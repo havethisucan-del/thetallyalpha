@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
 /**
  * The small corner menu of the full-window match (top right): one 44px button that opens a short
- * column of items (theme, log, debug, leave). Disclosure pattern: `aria-expanded` on the button,
+ * column of items (theme, debug, leave; the event log has its own icon, `LogCorner`). Disclosure pattern: `aria-expanded` on the button,
  * the items stay in the DOM while closed (`hidden`). Escape or a press outside closes it; Escape
  * returns focus to the button. Optional `status` (online connection) sits left of the button.
  */

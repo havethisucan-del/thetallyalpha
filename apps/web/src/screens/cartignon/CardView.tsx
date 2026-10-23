@@ -42,7 +42,7 @@ export function CardView({
   leading?: boolean;
   /** An armed trap: keeps the plain spell face (user 2026-10-22: traps keep their look for now). */
   trap?: boolean;
-  /** Minion / spell: enlarge on hover / keyboard focus / touch long-press. */
+  /** Minion / spell: enlarge on hover / keyboard focus / touch long-press or double tap. */
   preview?: boolean;
   /** Minion / spell: the card itself is a tab stop (read-only places such as stacks). */
   focusable?: boolean;
@@ -125,8 +125,9 @@ export function CardView({
 
 /* --- Spell hint badge (RD-171) ---------------------------------------------------------------
  * Which effect fires if cast now, as a full-width footer band on the card (60px, so even
- * "Unavailable" fits without truncation): Primary = solid turn colour, Secondary = amber fill,
- * Unavailable = no fill on a dashed rule. All three are separated from the card by an ink rule
+ * "Unavailable" fits without truncation): Primary = solid turn colour, Secondary = solid amber
+ * (2026-10-23: highlighted like Primary, no longer a pale tint), Unavailable = no fill on a dashed
+ * rule. All three are separated from the card by an ink rule
  * (the one UI line; the amber edge Secondary had before is gone, its fill and text carry it).
  * Not castable now: struck through (thick line) at full contrast; the reason is in the card's tooltip and accessible name. Text always carries the
  * meaning, colour never alone. */

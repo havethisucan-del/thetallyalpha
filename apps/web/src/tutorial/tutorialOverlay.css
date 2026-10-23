@@ -48,9 +48,73 @@
   --tutorial-note-from: 6px;
 }
 
+/* Card steps (revision 2026-10-23): the hand card is enlarged in place, lifted out of the fan
+   (its slot rises above the other cards and turns upright), and one part of its face is ringed.
+   Only the card-face classes (minionCard.css) and the hand slot (table.css) are relied on; the
+   face is sized in cqw, so it scales as one piece. */
+/* The hand is its own stacking context (table.css): raise it over the turn banner, token
+   corners and stacks while a card is zoomed; popovers / the log corner (45) and the coach note
+   (z-50) stay above. */
+.ct-hand:has([data-tutorial-zoom]) {
+  z-index: 44;
+}
+.ct-hand .ct-hand-card:has([data-tutorial-zoom]) {
+  z-index: 40;
+}
+/* One class more than table.css's hover / selected lift rules, so the zoom wins over them. */
+.ct-hand .ct-hand-card:has([data-tutorial-zoom]) .ct-hand-lift {
+  transform: rotate(calc(-1 * var(--ht, 0) * var(--fan, 0deg)))
+    translateY(calc(-1 * var(--tutorial-zoom-rise))) scale(var(--tutorial-zoom-scale));
+  transform-origin: 50% 100%;
+}
+.ct-hand {
+  --tutorial-zoom-scale: 2.6;
+  --tutorial-zoom-rise: 12px;
+}
+@media (max-width: 639px) {
+  .ct-hand {
+    --tutorial-zoom-scale: 2.1;
+  }
+}
+[data-tutorial-zoom] {
+  box-shadow: 0 6px 14px rgb(33 26 18 / 0.35);
+  border-radius: 0.375rem;
+}
+/* The ring scales with the card: keep it at about the normal width on screen. */
+[data-tutorial-zoom][data-tutorial-highlight] {
+  outline-width: 1.5px;
+  outline-offset: 1px;
+}
+
+[data-tutorial-zoom='atk'] .minion-atk,
+[data-tutorial-zoom='level'] .minion-lvl,
+[data-tutorial-zoom='colour'] .minion-box,
+[data-tutorial-zoom='modifiers'] .minion-mods,
+[data-part='condition'] .spell-cond,
+[data-part='primary'] .spell-pri,
+[data-part='secondary'] .spell-sec {
+  outline: 2.5cqw solid var(--ui-turn);
+  outline-offset: 1cqw;
+  border-radius: 2cqw;
+  animation: tutorial-ring 1.6s ease-in-out infinite;
+}
+/* Text lines of the spell face read on a pale wash, so the ring sits inside the body. */
+[data-part='condition'] .spell-cond,
+[data-part='primary'] .spell-pri,
+[data-part='secondary'] .spell-sec {
+  outline-width: 2px;
+  outline-offset: 1px;
+  background: color-mix(in srgb, var(--ui-turn) 14%, transparent);
+}
+
 @media (prefers-reduced-motion: reduce) {
   [data-tutorial-highlight],
-  .tutorial-note {
+  .tutorial-note,
+  [data-tutorial-zoom] *,
+  [data-part] * {
     animation: none;
+  }
+  .ct-hand .ct-hand-card:has([data-tutorial-zoom]) .ct-hand-lift {
+    transition: none;
   }
 }
