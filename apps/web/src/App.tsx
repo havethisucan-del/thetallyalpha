@@ -41,8 +41,16 @@ const LOADING_ONLINE: OnlineParts = {
 
 /** A client-side match on the normal table: a bot match or the tutorial (ADR-0018). */
 type SoloMatch =
-  | { readonly kind: 'bot'; readonly match: LocalMatch }
+  | { readonly kind: 'bot'; readonly match: LocalMatch; readonly key: number }
   | { readonly kind: 'tutorial'; readonly match: TutorialMatch };
+
+let soloKeys = 0;
+
+/** A new bot match; each gets its own React key, so a rematch remounts the table. */
+function botMatch(level: BotLevel): SoloMatch {
+  soloKeys += 1;
+  return { kind: 'bot', match: new LocalMatch({ level }), key: soloKeys };
+}
 
 const TUTORIAL_OPPONENT_LABEL = 'Bot · Tutorial';
 
@@ -53,12 +61,17 @@ function SoloMatchScreen({
   onHome,
   overlay = null,
   hideOutcome = false,
+  onRematch,
+  onChangeBot,
 }: {
   source: MatchSource;
   opponentLabel: string;
   onHome: () => void;
   overlay?: ReactNode;
   hideOutcome?: boolean;
+  /** Match summary actions; bot matches only (the tutorial passes neither). */
+  onRematch?: () => void;
+  onChangeBot?: () => void;
 }) {
   // MatchSource does not promise bound methods; stable wrappers per source.
   const subscribe = useCallback((listener: () => void) => source.subscribe(listener), [source]);
@@ -73,6 +86,8 @@ function SoloMatchScreen({
         onIncrement={(amount) => source.sendIncrement(amount)}
         onAction={(action) => source.sendAction(action)}
         onHome={onHome}
+        onRematch={onRematch}
+        onChangeBot={onChangeBot}
       />
       {overlay}
     </TableLayout>
@@ -136,6 +151,20 @@ export function App() {
     setMenu('play');
   }, []);
 
+  /** Match summary: a new bot match at the same level (the finished one is left first). */
+  const rematchBot = useCallback(() => {
+    if (solo?.kind !== 'bot') return;
+    solo.match.leave();
+    setSolo(botMatch(solo.match.level));
+  }, [solo]);
+
+  /** Match summary: leave the finished bot match for the bot picker. */
+  const changeBot = useCallback(() => {
+    solo?.match.leave();
+    setSolo(null);
+    setMenu('play');
+  }, [solo]);
+
   const startTutorial = useCallback(() => {
     setSolo({ kind: 'tutorial', match: new TutorialMatch() });
   }, []);
@@ -164,9 +193,13 @@ export function App() {
     if (solo) {
       return (
         <SoloMatchScreen
+          // A rematch is a new match: fresh table state (log history, round results).
+          key={solo.key}
           source={solo.match}
           opponentLabel={botLabel(solo.match.level)}
           onHome={leaveSolo}
+          onRematch={rematchBot}
+          onChangeBot={changeBot}
         />
       );
     }
@@ -179,7 +212,7 @@ export function App() {
           level={level}
           onLevelChange={setLevel}
           onPlayBot={() => {
-            setSolo({ kind: 'bot', match: new LocalMatch({ level }) });
+            setSolo(botMatch(level));
           }}
           onBack={() => {
             setMenu('home');

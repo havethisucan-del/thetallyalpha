@@ -8,6 +8,11 @@ import { shouldConfirmLeave } from '../match/leaveConfirm';
 import { PhaserBoard } from '../match/PhaserBoard';
 import type { MatchSnapshot } from '../net/matchSource';
 import { commandToAction, rendererFor } from '../lib/cartignon';
+import {
+  buildMatchSummary,
+  collectRoundEvents,
+  EMPTY_ROUND_EVENTS,
+} from '../match/cartignon/matchSummary';
 import { narrateEvents } from '../match/cartignon/narration';
 import { buildTableModel } from '../match/cartignon/tableModel';
 import { useClock } from '../match/cartignon/useClock';
@@ -20,6 +25,7 @@ import {
 } from '../lib/synthetic';
 import { CartignonDebugView } from './CartignonDebugView';
 import { CartignonTable } from './cartignon/CartignonTable';
+import { MatchSummaryPanel } from './cartignon/MatchSummary';
 import { TableMenu } from './cartignon/TableMenu';
 
 interface MatchScreenProps {
@@ -36,6 +42,10 @@ interface MatchScreenProps {
    * over): the tutorial coach narrates the match end itself and leads out with its own button.
    */
   hideOutcome?: boolean;
+  /** Cartignon match summary: start the same match setup again (solo bot matches only). */
+  onRematch?: (() => void) | undefined;
+  /** Cartignon match summary: leave for the bot picker (solo bot matches only). */
+  onChangeBot?: (() => void) | undefined;
 }
 
 function outcomeText(view: MatchViewMessage): string | null {
@@ -117,6 +127,8 @@ function CartignonMatchScreen({
   hideOutcome = false,
   onAction,
   onHome,
+  onRematch,
+  onChangeBot,
 }: MatchScreenProps) {
   const view = snapshot.view;
   const parts = snapshot.cartignon;
@@ -124,6 +136,15 @@ function CartignonMatchScreen({
   const [confirmLeave, setConfirmLeave] = useState(false);
   // Hooks run before the early return below; the clock ticks only while it changes over time.
   const clock = useClock(snapshot.clock, snapshot.clockReceivedAt, view?.seat ?? null);
+  // Round results for the end-of-match summary, kept beyond the rolling event log's cap. Adjusting
+  // state during render is the React pattern for derived state; `collectRoundEvents` returns the
+  // same object when nothing is new, so this settles at once.
+  const matchId = view?.matchId ?? null;
+  const [roundEvents, setRoundEvents] = useState(() =>
+    collectRoundEvents(EMPTY_ROUND_EVENTS, matchId, snapshot.eventLog),
+  );
+  const collected = collectRoundEvents(roundEvents, matchId, snapshot.eventLog);
+  if (collected !== roundEvents) setRoundEvents(collected);
   if (!view || !parts) return <UnreadableMatch onHome={onHome} />;
 
   const finished = view.outcome !== null || snapshot.room?.phase === 'finished';
@@ -132,6 +153,7 @@ function CartignonMatchScreen({
     !finished && snapshot.status === 'connected' && view.phase.activeSeat === view.seat;
   const outcome = outcomeText(view);
   const model = buildTableModel(view, parts, clock, view.seat);
+  const summary = buildMatchSummary(view.outcome, parts.public.match, view.seat, collected.entries);
 
   const notices = (
     <>
@@ -140,10 +162,17 @@ function CartignonMatchScreen({
           {snapshot.error}
         </p>
       )}
-      {outcome && !hideOutcome && <OutcomeCard outcome={outcome} onHome={onHome} />}
+      {summary && !hideOutcome && (
+        <MatchSummaryPanel
+          summary={summary}
+          onHome={onHome}
+          onRematch={onRematch}
+          onChangeBot={onChangeBot}
+        />
+      )}
     </>
   );
-  const showNotices = snapshot.error || (outcome && !hideOutcome);
+  const showNotices = snapshot.error || (summary && !hideOutcome);
 
   // Full-window layout (TableLayout gives this screen the whole viewport): the table fills it,
   // with the corner menu (theme, debug, leave) floating top right and the event log icon under

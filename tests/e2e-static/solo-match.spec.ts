@@ -169,6 +169,14 @@ test.describe('static build under a sub-path', () => {
       .info()
       .annotations.push({ type: 'outcome', description: `${result} after ${moves} moves` });
     await expect(page.getByTestId('back-home')).toBeVisible();
+    // The end-of-match summary offers a rematch at the same level and a way back to the picker.
+    await expect(page.getByTestId('match-summary')).toBeVisible();
+    await expect(page.getByTestId('summary-rounds-played')).toContainText('played');
+    await expect(page.getByTestId('change-bot')).toBeVisible();
+    await page.getByTestId('rematch').click();
+    await expect(page.getByTestId('outcome')).toHaveCount(0);
+    await expect(page.getByTestId('cartignon-table')).toBeVisible();
+    await expect(page.getByTestId('phase')).toHaveAttribute('data-phase', 'active');
     expectOffline(traffic);
   });
 

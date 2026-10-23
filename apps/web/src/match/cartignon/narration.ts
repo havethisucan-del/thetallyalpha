@@ -91,6 +91,8 @@ class Narrator {
   #turn: NarrationTurn | undefined;
   /** The last line pushed; what follows in the same step is added to its `details`. */
   #anchor: NarrationLine | null = null;
+  /** True once this round's `roundOver` line already said who won (or that it is a draw). */
+  #roundDecided = false;
 
   readonly pub: CartignonPublicView;
   readonly mySeat: Seat;
@@ -257,6 +259,10 @@ class Narrator {
         // Grouping: a new round has no turn yet; the result lines form the round's end group.
         if (event.type === 'roundStarted') this.#turn = undefined;
         if (event.type === 'roundOver') this.#turn = 'end';
+        // Only a tie-break leaves the winner open; otherwise `roundResolved` would repeat it.
+        if (event.type === 'roundStarted' || event.type === 'roundOver') {
+          this.#roundDecided = event.type === 'roundOver' && event.reason !== 'equalStall';
+        }
         const text = this.#simple(event);
         if (text === null) return;
         const line = this.#push(entry, this.#actor(event), text);
@@ -288,6 +294,7 @@ class Narrator {
       case 'roundOver':
         return this.#roundOver(event);
       case 'roundResolved': {
+        if (this.#roundDecided) return null;
         const view = outcomeView(event.outcome, this.mySeat);
         return view === null ? null : roundOutcomeText(view);
       }

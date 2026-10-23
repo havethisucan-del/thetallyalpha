@@ -111,9 +111,32 @@ describe('narrateEvents', () => {
     expect(texts(entries)).toEqual([
       'You played Orange 3 (ATK 4) onto your stack.',
       'Opponent ended their turn.',
+      // `roundResolved` repeats what `roundOver` already said, so it is not narrated.
       'Your opponent ended the turn while behind (ATK 9 vs 5) — you win the round.',
-      'You won the round: your opponent ended the turn while behind (ATK 9 vs 5).',
       'You won the Orange token.',
+    ]);
+  });
+
+  it('keeps the round result after a tie-break, where roundOver left the winner open', () => {
+    const entries = log(
+      [],
+      [
+        { type: 'roundOver', reason: 'equalStall', seat: 1, atk: [6, 6] },
+        {
+          type: 'roundResolved',
+          outcome: {
+            kind: 'win',
+            winner: 0,
+            decidedBy: 'tieBreak',
+            atk: [9, 6],
+            tieBreakIterations: 1,
+          },
+        },
+      ],
+    );
+    expect(texts(entries)).toEqual([
+      'Tie: your opponent ended the turn at equal ATK without playing (ATK 6 vs 6) — a tie-break decides the round.',
+      'You won the round on the tie-break (ATK 9 vs 6).',
     ]);
   });
 
