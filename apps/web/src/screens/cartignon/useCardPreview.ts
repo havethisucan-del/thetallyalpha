@@ -25,11 +25,14 @@ function focusVisible(element: Element): boolean {
 /**
  * Opens the enlarged preview for the card `cardRef` from its control (the closest button, label or
  * focusable element, else the card itself). Returns the placement while open, else null.
+ * `tapToggle` (read-only cards such as the stacks): a tap or click opens the preview too, a second
+ * tap on the card or a press anywhere else closes it.
  */
 export function useCardPreview(
   cardRef: RefObject<HTMLDivElement | null>,
   enabled: boolean,
   preferredWidth: number = PREVIEW_WIDTH,
+  tapToggle = false,
 ): PreviewPlacement | null {
   const [placement, setPlacement] = useState<PreviewPlacement | null>(null);
 
@@ -40,19 +43,24 @@ export function useCardPreview(
     let timer: ReturnType<typeof setTimeout> | null = null;
     let start: { x: number; y: number } | null = null;
     let longPressed = false;
+    let open = false;
+    let lastPointer = 'mouse';
 
     const show = () => {
       const r = card.getBoundingClientRect();
+      open = true;
       setPlacement(
         previewPlacement(
           { left: r.left, top: r.top, width: r.width, height: r.height },
           window.innerWidth,
           window.innerHeight,
-          preferredWidth,
+          // Large table cards (wide screens) still get a clearly larger preview.
+          Math.max(preferredWidth, Math.round(r.width * 1.8)),
         ),
       );
     };
     const hide = () => {
+      open = false;
       setPlacement(null);
     };
     const clearTimer = () => {
@@ -76,6 +84,7 @@ export function useCardPreview(
       hide();
     };
     const onPointerDown = (e: PointerEvent) => {
+      lastPointer = e.pointerType;
       if (e.pointerType === 'mouse') return;
       longPressed = false;
       start = { x: e.clientX, y: e.clientY };
@@ -103,6 +112,15 @@ export function useCardPreview(
       e.preventDefault();
       e.stopPropagation();
     };
+    // Tap toggle: runs after the capture handler above (a long-press tap never gets here).
+    const onTap = () => {
+      if (!tapToggle) return;
+      if (lastPointer === 'mouse' || !open) show();
+      else hide();
+    };
+    const onDocumentPointerDown = (e: PointerEvent) => {
+      if (open && !(e.target instanceof Node && host.contains(e.target))) hide();
+    };
     const onContextMenu = (e: MouseEvent) => {
       if (timer !== null || longPressed) e.preventDefault();
     };
@@ -119,6 +137,8 @@ export function useCardPreview(
     host.addEventListener('pointerup', onPointerEnd);
     host.addEventListener('pointercancel', onPointerEnd);
     host.addEventListener('click', onClickCapture, true);
+    host.addEventListener('click', onTap);
+    if (tapToggle) document.addEventListener('pointerdown', onDocumentPointerDown, true);
     host.addEventListener('contextmenu', onContextMenu);
     host.addEventListener('keydown', onKeyDown);
     // The preview is placed in viewport coordinates: any scroll closes it.
@@ -135,12 +155,14 @@ export function useCardPreview(
       host.removeEventListener('pointerup', onPointerEnd);
       host.removeEventListener('pointercancel', onPointerEnd);
       host.removeEventListener('click', onClickCapture, true);
+      host.removeEventListener('click', onTap);
+      document.removeEventListener('pointerdown', onDocumentPointerDown, true);
       host.removeEventListener('contextmenu', onContextMenu);
       host.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('scroll', hide, true);
       window.removeEventListener('resize', hide);
     };
-  }, [cardRef, enabled, preferredWidth]);
+  }, [cardRef, enabled, preferredWidth, tapToggle]);
 
   return enabled ? placement : null;
 }

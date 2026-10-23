@@ -9,19 +9,20 @@ import {
 import type { HandCard, LegalRef, MyChoice } from '../../match/cartignon/tableModel';
 
 /**
- * Thumb-zone action bar (R8c). With a hand card selected, a first row offers only that card's
- * legal commands (server-listed `legal` entries, sent unchanged). The second row keeps the global
- * commands (Mulligan left, End turn right) and, while this seat has a pending choice whose
- * sheet is hidden, the button that reopens it. Rows wrap instead of overflowing.
+ * The action cluster in the dock beside the own hand (R8c): one right-aligned row that wraps
+ * upwards instead of overflowing. With a hand card selected it starts with only that card's legal
+ * commands (server-listed `legal` entries, sent unchanged) and Deselect; then the global commands
+ * (Mulligan, End turn last, nearest the thumb) and, while this seat has a pending choice whose
+ * sheet is hidden, the button that reopens it.
  */
 
 const buttonBase =
-  'inline-flex min-h-bar min-w-target items-center justify-center rounded-md px-4 text-xl ' +
+  'inline-flex min-h-target min-w-target items-center justify-center rounded-md px-3.5 text-lg ' +
   'leading-none tracking-wide transition-colors disabled:cursor-not-allowed disabled:opacity-50';
 export const primaryButtonClass =
   `${buttonBase} ink-line bg-turn text-on-turn hover:bg-turn-hover ` + 'disabled:hover:bg-turn';
 /* End turn is the one button every turn needs: bold, wider and set off on the right edge. */
-const endTurnButtonClass = `${primaryButtonClass} min-w-32 font-bold tracking-wide`;
+const endTurnButtonClass = `${primaryButtonClass} min-w-28 font-bold tracking-wide`;
 export const secondaryButtonClass =
   `${buttonBase} ink-line bg-paper-raised text-ink hover:bg-paper-sunken ` +
   'disabled:hover:bg-paper-raised';
@@ -68,7 +69,7 @@ export function ActionBar({
   );
 
   return (
-    <div className="flex flex-col gap-2" data-testid="action-bar">
+    <div className="flex flex-wrap items-center justify-end gap-2" data-testid="action-bar">
       {selectedCard && (
         <CardActions
           card={selectedCard}
@@ -78,11 +79,9 @@ export function ActionBar({
         />
       )}
       {(commands.length > 0 || showChoose) && (
-        <div className="flex min-h-bar flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap gap-2">
-            {secondary.map((ref) => button(ref, secondaryButtonClass))}
-          </div>
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {secondary.map((ref) => button(ref, secondaryButtonClass))}
+          <div className="flex flex-wrap justify-end gap-2">
             {showChoose && (
               <button
                 type="button"
@@ -122,13 +121,16 @@ function CardActions({
     <div
       role="group"
       aria-label={`Actions for ${name}`}
-      className="flex min-h-bar flex-wrap items-center justify-between gap-2"
+      className="flex flex-wrap items-center justify-end gap-2"
       data-testid="card-actions"
     >
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
         {card.commands.length === 0 ? (
-          <p className="text-sm text-ink-muted" data-testid="no-card-actions">
-            No move for this card now.
+          <p
+            className="rounded-md bg-paper-raised px-2 py-1 text-sm text-ink-muted"
+            data-testid="no-card-actions"
+          >
+            No move<span className="ct-long"> for this card now</span>.
           </p>
         ) : (
           card.commands.map((ref) => (
@@ -155,7 +157,15 @@ function CardActions({
         onClick={onClear}
         data-testid="card-deselect"
       >
-        Deselect
+        <span className="ct-long">Deselect</span>
+        <svg aria-hidden="true" viewBox="0 0 20 20" className="ct-short size-5" focusable="false">
+          <path
+            d="M5 5l10 10M15 5 5 15"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+          />
+        </svg>
       </button>
     </div>
   );

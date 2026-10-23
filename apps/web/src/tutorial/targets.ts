@@ -15,10 +15,13 @@ export const TARGET_SELECTORS: Readonly<Record<Exclude<TargetId, `card:${string}
   hand: '[data-testid="hand"]',
   'end-turn': '[data-testid="global-endTurn"]',
   'card-actions': '[data-testid="card-actions"]',
-  'token-track': '[data-testid="token-track"]',
+  // The tokens on the middle line plus both corners where won tokens lie.
+  'token-track':
+    '[data-testid="token-track"], [data-testid="mine-tokens"], [data-testid="theirs-tokens"]',
   'center-strip': '[data-testid="center-strip"]',
   'turn-banner': '[data-testid="turn-banner"]',
-  piles: '[data-testid="piles"]',
+  // The two piles sit at opposite ends of the middle line: highlight each pile itself.
+  piles: '[data-testid="pile-graveyard"], [data-testid="pile-deck"]',
 };
 
 const CARD_PREFIX = 'card:';

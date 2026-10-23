@@ -1,5 +1,5 @@
 import type { ActionResultMessage, CartignonCommand } from '@cartignon/protocol';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import type { EventLogEntry } from '../../lib/cartignon';
 import { selectedHandCard, tapHandCard } from '../../match/cartignon/interaction';
 import {
@@ -16,18 +16,32 @@ import { ActionLog } from './ActionLog';
 import { ActionBar } from './ActionBar';
 import { CenterStrip } from './CenterStrip';
 import { ChoiceSheet } from './ChoiceSheet';
-import { HandRow } from './HandRow';
+import { HandRow, handRows } from './HandRow';
+import { LogToast } from './LogToast';
 import { OpponentChoosing } from './OpponentChoosing';
+import { OpponentHand } from './OpponentHand';
 import { SeatBar, type AtkStanding } from './SeatBar';
 import { SeatStack } from './Stacks';
+import { TokenTrack } from './TokenTrack';
 import { TurnBanner } from './TurnBanner';
+import './table.css';
 
 export type TablePalette = 'normal' | 'colorblind';
 
-/** Display-only comparison of two shown ATK totals (the seat bars' "Leads" / "Tied" chip). */
+/** Display-only comparison of two shown ATK totals (the seat badges' "Leads" / "Tied" chip). */
 function atkStanding(own: number, other: number): AtkStanding {
   if (own > other) return 'ahead';
   return own === other ? 'tied' : 'behind';
+}
+
+/** Hand size variables the field layout needs (table.css): cards, cards per row, two levels. */
+function handFieldVars(count: number): CSSProperties {
+  const { two, perRow } = handRows(count);
+  return {
+    '--hand-n': Math.max(count, 1),
+    '--hand-n2': Math.max(perRow, 1),
+    '--hand-two': two ? 1 : 0,
+  } as CSSProperties;
 }
 
 /** What this table sent last, and the result that was current when it was sent. */
@@ -37,11 +51,13 @@ interface SentAction {
 }
 
 /**
- * Cartignon match table (R8b layout, R8c interactions; ADR-0011): portrait, mobile-first DOM
- * layout over a `TableModel`. It fills the height its parent gives it: the region with the
- * opponent bar, opponent stack + traps, center strip and own bar + stack scrolls internally; below
- * it a fixed dock keeps the result announcer, turn banner + clock, then either the choice sheet or
- * the hand row and action bar (thumb zone).
+ * Cartignon match table (R8c interactions; ADR-0011) as a full-window "physical table"
+ * (`table.css`): the opponent's hand (backs) fanned at the top, their stack above the middle
+ * line, the graveyard, tokens and deck on the line, the own stack below it and the own hand fanned
+ * at the bottom; won tokens sit in the holders' corners. Floating, unboxed extras: each seat's ATK
+ * badge beside its stack, the action dock (turn pill, clock, commands) beside the own hand, a tiny
+ * round counter top right, transient toasts for results and narration, and the full log behind
+ * the corner menu (`logOpen`). A pending choice opens as a bottom sheet in place of the hand.
  * All data comes from the model; every action goes through `onCommand` (legal entries unchanged,
  * or a choice selection sent only on Confirm). Local UI state: the tapped hand card, whether the
  * choice sheet is hidden, and the last sent action (for announcements).
@@ -56,21 +72,26 @@ export function CartignonTable({
   log = [],
   eventLog = [],
   opponentLabel = 'Opponent',
+  logOpen = false,
+  onCloseLog,
 }: {
   model: TableModel;
   canAct: boolean;
   onCommand: (command: CartignonCommand) => void;
   /** The latest result of this seat's actions (`match:result`), for the live regions. */
   lastResult?: ActionResultMessage | null;
-  /** Errors / outcome shown at the top of the scrolling area. */
+  /** Errors / outcome, shown over the middle of the table. */
   notices?: ReactNode;
   palette?: TablePalette;
-  /** Narrated events (`narrateEvents`), oldest first; shown newest first below the own stack. */
+  /** Narrated events (`narrateEvents`), oldest first; the log panel shows them newest first. */
   log?: readonly NarrationLine[];
   /** The rolling event log (oldest first); drives the modifier glow on stack cards. */
   eventLog?: readonly EventLogEntry[];
-  /** Name shown on the opponent's seat bar (e.g. `Bot · L3 Skilled`). */
+  /** Name shown under the opponent's hand (e.g. `Bot · L3 Skilled`). */
   opponentLabel?: string;
+  /** The full action log panel is open (toggled from the corner menu). */
+  logOpen?: boolean;
+  onCloseLog?: () => void;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hiddenChoiceId, setHiddenChoiceId] = useState<number | null>(null);
@@ -81,7 +102,8 @@ export function CartignonTable({
     resultBefore: lastResult,
   }));
 
-  const tokens = model.center.tokens;
+  const center = model.center;
+  const tokens = center.tokens;
   const glows = useMemo(
     () =>
       modifierGlows(
@@ -95,6 +117,11 @@ export function CartignonTable({
   const choiceOpen = myChoice !== null && hiddenChoiceId !== myChoice.choiceId;
   // A stale id (card played or gone) simply selects nothing.
   const selected = selectedHandCard(model.hand, selectedId);
+  // Turn cue: the hand of the seat that acts glows.
+  const theyAct =
+    !model.myAction &&
+    !model.finished &&
+    (model.opponentChoosing !== null || model.onTurn === 'theirs');
 
   const send = (command: CartignonCommand) => {
     const card =
@@ -113,53 +140,49 @@ export function CartignonTable({
 
   return (
     <div
-      className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col md:max-w-2xl"
+      className="ct-field"
+      style={handFieldVars(model.hand.length)}
       data-palette={palette}
       data-testid="cartignon-table"
     >
-      <div
-        // scroll-padding-bottom keeps scrollIntoView (tutorial targets, focus) clear of the pinned
-        // own seat below; both only apply on screens tall enough to pin it.
-        className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pb-2 [@media(min-height:640px)]:scroll-pb-56"
-        data-testid="table-scroll"
-      >
-        {notices}
-        <SeatBar
-          area={model.opponent}
-          name={opponentLabel}
-          tokens={tokenCount(tokens, 'theirs')}
-          onTurn={model.onTurn === 'theirs'}
-          standing={atkStanding(model.opponent.atk, model.me.atk)}
-        />
-        <SeatStack area={model.opponent} glows={glows} />
-        <CenterStrip center={model.center} />
-        {/* The own seat bar + stack stick to the bottom of the scroll region (just above the
-            dock) whenever their place is further down, so the own stack is always in full view;
-            the center strip scrolls behind them. Not on short screens, where they would leave
-            no room for the rest. */}
-        <div
-          className="flex flex-col gap-2 bg-paper pt-1 [@media(min-height:640px)]:sticky [@media(min-height:640px)]:bottom-0 [@media(min-height:640px)]:z-10"
-          data-testid="mine-seat"
-        >
+      {/* No box of its own (the table no longer scrolls): the board in reading order. */}
+      <div className="contents" data-testid="table-scroll">
+        <OpponentHand area={model.opponent} name={opponentLabel} active={theyAct} />
+        <div className="ct-seat" data-side="theirs" data-testid="theirs-seat">
+          <SeatStack area={model.opponent} glows={glows} />
+          <SeatBar
+            area={model.opponent}
+            name={opponentLabel}
+            tokens={tokenCount(tokens, 'theirs')}
+            onTurn={model.onTurn === 'theirs'}
+            standing={atkStanding(model.opponent.atk, model.me.atk)}
+          />
+        </div>
+        <CenterStrip center={center} />
+        <TokenTrack tokens={tokens} />
+        <div className="ct-seat" data-side="mine" data-testid="mine-seat">
+          <SeatStack area={model.me} glows={glows} />
           <SeatBar
             area={model.me}
             tokens={tokenCount(tokens, 'mine')}
             onTurn={model.onTurn === 'mine'}
             standing={atkStanding(model.me.atk, model.opponent.atk)}
           />
-          <SeatStack area={model.me} glows={glows} />
         </div>
-        {/* Below the own stack, so both stacks and the center stay on the first screen. */}
-        <ActionLog lines={log} />
       </div>
-      <div
-        className="ink-line-t flex flex-none flex-col gap-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
-        data-testid="table-dock"
-      >
-        <ActionAnnouncer announcement={announcement} messageKey={fresh?.actionId ?? null} />
-        <TurnBanner text={turnBannerText(model)} myAction={model.myAction} clock={model.clock} />
-        {model.opponentChoosing && <OpponentChoosing choice={model.opponentChoosing} />}
-        {myChoice && (
+
+      {!choiceOpen && (
+        <HandRow
+          hand={model.hand}
+          selectedId={selected?.cardId ?? null}
+          active={model.myAction}
+          onTap={(cardId) => {
+            setSelectedId((current) => tapHandCard(current, cardId));
+          }}
+        />
+      )}
+      {myChoice && (
+        <div className="ct-sheet" hidden={!choiceOpen}>
           <ChoiceSheet
             // A new choice starts with an empty selection.
             key={myChoice.choiceId}
@@ -173,31 +196,60 @@ export function CartignonTable({
               setHiddenChoiceId(myChoice.choiceId);
             }}
           />
-        )}
+        </div>
+      )}
+
+      <div className="ct-dock" data-testid="table-dock">
+        <TurnBanner text={turnBannerText(model)} myAction={model.myAction} clock={model.clock} />
+        {model.opponentChoosing && <OpponentChoosing choice={model.opponentChoosing} />}
         {!choiceOpen && (
-          <>
-            <HandRow
-              hand={model.hand}
-              selectedId={selected?.cardId ?? null}
-              onTap={(cardId) => {
-                setSelectedId((current) => tapHandCard(current, cardId));
-              }}
-            />
-            <ActionBar
-              commands={model.globalCommands}
-              selectedCard={selected}
-              myChoice={myChoice}
-              choiceOpen={choiceOpen}
-              canAct={canAct}
-              onCommand={send}
-              onClearSelection={() => {
-                setSelectedId(null);
-              }}
-              onOpenChoice={() => {
-                setHiddenChoiceId(null);
-              }}
-            />
-          </>
+          <ActionBar
+            commands={model.globalCommands}
+            selectedCard={selected}
+            myChoice={myChoice}
+            choiceOpen={choiceOpen}
+            canAct={canAct}
+            onCommand={send}
+            onClearSelection={() => {
+              setSelectedId(null);
+            }}
+            onOpenChoice={() => {
+              setHiddenChoiceId(null);
+            }}
+          />
+        )}
+      </div>
+
+      <p className="ct-round text-sm leading-none text-ink-muted tabular-nums">
+        <span className="sr-only">Round </span>
+        <span aria-hidden="true">R</span>
+        <span data-testid="table-round">
+          {center.round}
+          {center.finalRound ? ' (final)' : ''}
+        </span>
+        <span className="sr-only">, turn </span>
+        <span aria-hidden="true"> · T</span>
+        {center.turn}
+      </p>
+
+      <div className="ct-toasts">
+        <ActionAnnouncer announcement={announcement} messageKey={fresh?.actionId ?? null} />
+        <LogToast line={log.at(-1) ?? null} />
+      </div>
+
+      {notices && <div className="ct-notices">{notices}</div>}
+
+      <div className="ct-log" hidden={!logOpen} data-testid="log-panel">
+        <ActionLog lines={log} />
+        {onCloseLog && (
+          <button
+            type="button"
+            className="ink-line absolute top-1 right-1 min-h-target min-w-target rounded-md bg-paper-raised px-2 text-sm"
+            onClick={onCloseLog}
+            data-testid="log-close"
+          >
+            Close
+          </button>
         )}
       </div>
     </div>

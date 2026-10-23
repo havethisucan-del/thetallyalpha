@@ -30,6 +30,7 @@ export function CardView({
   trap = false,
   preview = true,
   focusable = false,
+  tapPreview = false,
 }: {
   card: TableCard;
   ariaLabel?: string;
@@ -45,6 +46,8 @@ export function CardView({
   preview?: boolean;
   /** Minion / spell: the card itself is a tab stop (read-only places such as stacks). */
   focusable?: boolean;
+  /** Minion / spell: a tap or click also opens (and toggles) the preview (stack cards). */
+  tapPreview?: boolean;
 }) {
   const summary = card.summary;
   const baseLabel = ariaLabel ?? cardAriaLabel(card);
@@ -61,6 +64,7 @@ export function CardView({
         leading={leading}
         preview={preview}
         focusable={focusable}
+        tapPreview={tapPreview}
       />
     );
   }
@@ -77,6 +81,7 @@ export function CardView({
         footer={hint ? <SpellHintBadge hint={hint} onPaper /> : undefined}
         preview={preview}
         focusable={focusable}
+        tapPreview={tapPreview}
       />
     );
   }

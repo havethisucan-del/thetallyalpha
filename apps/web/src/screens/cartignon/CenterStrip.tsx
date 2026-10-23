@@ -6,74 +6,44 @@ import {
 } from '../../match/cartignon/labels';
 import type { TableCenter } from '../../match/cartignon/tableModel';
 import { Piles } from './Piles';
-import { TokenTrack } from './TokenTrack';
+import { TableDivider } from './TableDivider';
 
 /**
- * Shared table state between the two stacks: round, turn, round result, tokens, the deck and
- * graveyard piles, live modifiers.
+ * The middle line of the table (`.ct-mid` in table.css): the divider placeholder, the graveyard
+ * (left) and deck (right) piles, and while a round is over the reason it ended (RD-169) as a
+ * small callout just above the line. The tokens lie on this line too but are drawn by
+ * `TokenTrack` (they travel to the corners). Phase, the previous round's result and the live
+ * modifiers are given to assistive tech only (the cards show the modifiers themselves).
  */
 export function CenterStrip({ center }: { center: TableCenter }) {
-  const item = 'flex items-baseline gap-1';
-  const term = 'text-sm text-ink-muted';
-  const value = 'font-bold tabular-nums';
   return (
-    <section
-      aria-label="Table center"
-      className="ink-line flex flex-col gap-2 rounded-md bg-paper-raised p-2"
-      data-testid="center-strip"
-    >
-      <dl className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm">
-        <div className={item}>
-          <dt className={term}>Round</dt>
-          <dd className={value} data-testid="table-round">
-            {center.round}
-            {center.finalRound ? ' (final)' : ''}
-          </dd>
-        </div>
-        <div className={item}>
-          <dt className={term}>Turn</dt>
-          <dd className={value}>{center.turn}</dd>
-        </div>
-        <div className={item}>
-          <dt className={term}>Phase</dt>
-          <dd className="font-semibold">{phaseText(center.phaseKind)}</dd>
-        </div>
-        {center.replays > 0 && (
-          <div className={item}>
-            <dt className={term}>Replays</dt>
-            <dd className={value}>{center.replays}</dd>
-          </div>
-        )}
-      </dl>
-      {/* Why the round ended (RD-169), else the previous round's result. */}
+    <section aria-label="Table center" className="ct-mid" data-testid="center-strip">
+      <TableDivider />
+      <p className="sr-only">
+        Round {center.round}
+        {center.finalRound ? ' (final)' : ''}, turn {center.turn}, {phaseText(center.phaseKind)}
+        {center.replays > 0 ? `, ${center.replays} replays` : ''}.
+      </p>
       {center.roundOver ? (
-        // Callout: warn-coloured edge on a light surface, body text at full contrast.
         <p
           role="status"
-          className="rounded-md border-l-4 border-warn bg-paper-sunken px-2 py-1.5 text-lg text-ink"
+          className="ct-round-over rounded-md border-l-4 border-warn bg-paper-raised px-2 py-1 text-base leading-snug text-ink shadow-md"
           data-testid="round-over"
         >
           {roundOverText(center.roundOver)}
         </p>
       ) : (
         center.lastOutcome && (
-          <p className="text-sm text-ink-muted" data-testid="last-outcome">
+          <p className="sr-only" data-testid="last-outcome">
             Last round: {roundOutcomeText(center.lastOutcome)}
           </p>
         )
       )}
-      {/* The match tokens sit in the middle of the field, between the two stacks. */}
-      <div className="py-1">
-        <TokenTrack tokens={center.tokens} />
-      </div>
       <Piles deckCount={center.deckCount} graveyard={center.graveyard} />
       {center.liveModifiers.length > 0 && (
-        <ul aria-label="Live modifiers" className="flex flex-wrap gap-1 text-xs">
+        <ul aria-label="Live modifiers" className="sr-only">
           {center.liveModifiers.map((modifier) => (
-            <li
-              key={`${modifier.seat}:${modifier.cardId}:${modifier.kind}`}
-              className="ink-line rounded px-1.5 py-0.5 font-semibold"
-            >
+            <li key={`${modifier.seat}:${modifier.cardId}:${modifier.kind}`}>
               {liveModifierText(modifier)}
             </li>
           ))}

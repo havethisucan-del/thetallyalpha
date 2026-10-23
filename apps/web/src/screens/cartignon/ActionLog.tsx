@@ -1,8 +1,9 @@
 import type { NarrationLine } from '../../match/cartignon/narration';
 
 /**
- * Compact action log on the table: narrated events (`narrateEvents`), newest first, in a short
- * box that scrolls internally (it never widens the layout; long sentences wrap). Own actions are
+ * The full action log, opened from the corner menu (the newest line also shows briefly as a
+ * toast, `LogToast`): narrated events (`narrateEvents`), newest first, in a box that scrolls
+ * internally (it never widens the layout; long sentences wrap). Own actions are
  * marked with a turn-coloured edge, the opponent's with a neutral one. `role="log"` lets screen
  * readers follow new lines; the box is focusable so keyboard users can scroll it.
  */
@@ -11,7 +12,7 @@ export function ActionLog({ lines }: { lines: readonly NarrationLine[] }) {
   return (
     <section
       aria-labelledby="action-log-heading"
-      className="ink-line rounded-md bg-paper-raised p-2"
+      className="ink-line rounded-md bg-paper-raised p-2 shadow-lg"
       data-testid="action-log"
     >
       <h2
@@ -26,9 +27,9 @@ export function ActionLog({ lines }: { lines: readonly NarrationLine[] }) {
         <ol
           role="log"
           aria-labelledby="action-log-heading"
-          // Focusable scroll box (keyboard scrolling); about four lines tall.
+          // Focusable scroll box (keyboard scrolling).
           tabIndex={0}
-          className="flex max-h-24 flex-col gap-1 overflow-y-auto text-sm leading-snug break-words md:max-h-36"
+          className="flex max-h-[50dvh] flex-col gap-1 overflow-y-auto text-sm leading-snug break-words"
           data-testid="action-log-list"
         >
           {newestFirst.map((line, index) => (

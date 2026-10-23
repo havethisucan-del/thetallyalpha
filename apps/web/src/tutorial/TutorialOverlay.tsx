@@ -23,7 +23,8 @@ import './tutorialOverlay.css';
  * `data-tutorial-highlight` (resolved through `targets.ts`). Persisting the outcome
  * (`markTutorial`) and leaving the match are the caller's job (`onFinish` / `onSkip`).
  *
- * Placement: beside the table when the viewport leaves room for it ("side"); otherwise at the top
+ * Placement: right of the table's central column (hands, stacks) when the viewport leaves room
+ * and the note would cover no highlighted element there ("side"); otherwise at the top
  * or the bottom, whichever covers less of the highlighted elements (`chooseVerticalPlacement`,
  * re-measured on step change, table re-render, resize and scroll). The note can also be collapsed
  * to its header and buttons. Non-modal: the table stays usable; Escape does nothing here (no
@@ -82,10 +83,48 @@ export function chooseVerticalPlacement(
   return coveredTop < coveredBottom ? 'top' : 'bottom';
 }
 
-/** True when a side note fits right of the table without touching it. */
+/** True when a side note fits right of the table content without touching it. */
 export function sideFits(tableRight: number | null, viewportWidth: number): boolean {
   if (tableRight === null) return false;
   return tableRight + SIDE_GAP_PX <= viewportWidth - SIDE_GAP_PX - SIDE_WIDTH_PX;
+}
+
+/**
+ * The central column of the full-window table (hands, stacks and their badges): the side note
+ * goes right of it. The table itself spans the whole viewport, so it cannot be the measure.
+ */
+const TABLE_CONTENT_SELECTOR = [
+  'hand',
+  'theirs-hand',
+  'mine-seat',
+  'theirs-seat',
+  'mine-bar',
+  'theirs-bar',
+  'mine-traps',
+  'theirs-traps',
+]
+  .map((id) => `[data-testid="${id}"]`)
+  .join(', ');
+
+function tableContentRight(): number | null {
+  let right: number | null = null;
+  for (const element of document.querySelectorAll(TABLE_CONTENT_SELECTOR)) {
+    const r = element.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) continue;
+    right = Math.max(right ?? r.right, r.right);
+  }
+  return right;
+}
+
+interface Box {
+  readonly left: number;
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+}
+
+function boxesIntersect(a: Box, b: Box): boolean {
+  return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
 }
 
 function prefersReducedMotion(): boolean {
@@ -129,6 +168,7 @@ function useTargets(
 ): CoachPlacement {
   const [placement, setPlacement] = useState<CoachPlacement>('top');
   const previous = useRef<'top' | 'bottom'>('top');
+  const current = useRef<CoachPlacement>('top');
 
   useLayoutEffect(() => {
     const marked = new Set<Element>();
@@ -148,18 +188,33 @@ function useTargets(
           marked.add(element);
         }
       }
-      const table = document.querySelector('[data-testid="cartignon-table"]');
-      if (sideFits(table?.getBoundingClientRect().right ?? null, window.innerWidth)) {
-        setPlacement('side');
-        return;
+      const note = noteRef.current?.getBoundingClientRect() ?? null;
+      const height = note?.height ?? 0;
+      const rects = targets.map((element) => element.getBoundingClientRect());
+      if (sideFits(tableContentRight(), window.innerWidth)) {
+        // The side note must not cover a target (e.g. the deck pile at the right end of the
+        // middle line). Its height is estimated from the current note when it is not on the side
+        // yet (same text, narrower box).
+        const sideHeight =
+          current.current === 'side' || note === null || note.width === 0
+            ? height
+            : (height * note.width) / SIDE_WIDTH_PX;
+        const side: Box = {
+          left: window.innerWidth - SIDE_GAP_PX - SIDE_WIDTH_PX,
+          right: window.innerWidth - SIDE_GAP_PX,
+          top: TOP_OFFSET_PX,
+          bottom: Math.min(TOP_OFFSET_PX + sideHeight, window.innerHeight - SIDE_GAP_PX),
+        };
+        if (!rects.some((rect) => boxesIntersect(side, rect))) {
+          current.current = 'side';
+          setPlacement('side');
+          return;
+        }
       }
-      const spans = targets.map((element) => {
-        const rect = element.getBoundingClientRect();
-        return { top: rect.top, bottom: rect.bottom };
-      });
-      const height = noteRef.current?.getBoundingClientRect().height ?? 0;
+      const spans = rects.map((rect) => ({ top: rect.top, bottom: rect.bottom }));
       const next = chooseVerticalPlacement(spans, height, window.innerHeight, previous.current);
       previous.current = next;
+      current.current = next;
       setPlacement(next);
     };
     const schedule = () => {
@@ -198,8 +253,9 @@ function useTargets(
 }
 
 const PLACEMENT_CLASS: Readonly<Record<CoachPlacement, string>> = {
-  top: 'inset-x-3 top-[60px] max-h-[60dvh]',
-  bottom: 'inset-x-3 bottom-[max(0.5rem,env(safe-area-inset-bottom))] max-h-[60dvh]',
+  top: 'inset-x-3 top-[60px] mx-auto max-h-[60dvh] max-w-2xl',
+  bottom:
+    'inset-x-3 bottom-[max(0.5rem,env(safe-area-inset-bottom))] mx-auto max-h-[60dvh] max-w-2xl',
   // Below the match toolbar row too, so the toolbar buttons stay free.
   side: 'right-4 top-[60px] w-64 max-h-[calc(100dvh-76px)]',
 };

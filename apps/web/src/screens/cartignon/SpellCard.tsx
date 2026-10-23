@@ -123,6 +123,7 @@ export function SpellCard({
   footer,
   preview = true,
   focusable = false,
+  tapPreview = false,
 }: {
   card: TableCard;
   text: SpellText;
@@ -132,9 +133,11 @@ export function SpellCard({
   footer?: ReactNode;
   preview?: boolean;
   focusable?: boolean;
+  /** A tap or click also opens / toggles the preview. */
+  tapPreview?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const placement = useCardPreview(ref, preview, SPELL_PREVIEW_WIDTH);
+  const placement = useCardPreview(ref, preview, SPELL_PREVIEW_WIDTH, tapPreview);
 
   return (
     <>

@@ -1,0 +1,551 @@
+/*
+ * Full-window "physical table" layout of a Cartignon match (CartignonTable). Every region is
+ * absolutely placed on one field that fills the viewport; sizes derive from one table card width
+ * (--tcw, clamped to the viewport) so the layout scales from 375x812 portrait to 1920x1080.
+ *
+ *   top-left: opponent tokens            top-right: round info + corner menu (MatchScreen)
+ *                   opponent hand (card backs, fanned arc)
+ *                   opponent stack (+ ATK badge, traps)
+ *   G pile ───────── tokens on the middle line ───────── D pile
+ *                   own stack (+ ATK badge, traps)
+ *                   own hand (face up, fanned arc)          action dock (bottom-right)
+ *   bottom-left: own tokens
+ *
+ * Colours come only from the manuscript tokens in index.css; nothing here defines a colour.
+ * Card faces scale from --card-w / --card-h (their own cqw sizing), so each scope that changes
+ * the card size redeclares both (custom properties resolve where they are declared).
+ */
+
+.ct-field {
+  /* Edge gutter, table card width (aspect 279:394 like the minion art) and token size. */
+  --gut: clamp(6px, 1.1vmin, 16px);
+  --tcw: clamp(60px, min(7.2vw, 11dvh), 128px);
+  --card-w: var(--tcw);
+  --card-h: calc(var(--card-w) * 1.4125);
+  --tok: clamp(18px, calc(var(--tcw) * 0.3), 34px);
+  --tok-pitch: calc(var(--tok) * 1.35);
+  --tok-c: calc(var(--tok) * 0.74);
+  --tok-c-pitch: calc(var(--tok-c) + 6px);
+  --mid-h: calc(var(--tok) + 10px);
+  --row-gap: clamp(8px, 1.6dvh, 20px);
+  /* Portrait leaves a top bar for the opponent tokens and the corner menu. */
+  --top-bar: 0px;
+
+  /* Own hand fan: every card turns --fan further than its left neighbour and sits on the
+     matching circle (sag = t^2 * pitch * fan_rad / 2, fan 4.5deg = 0.0785 rad). The pitch grows
+     with the free width up to 0.9 card widths (cards always overlap a little); the sag stops
+     growing at the old 0.66 pitch so a wide spread does not eat the height.
+     --hand-rn is the number of cards in one row: the whole hand, or in portrait with more than
+     five cards the larger of two rows (two-level fan, the back row raised by --rise). */
+  --fan: 4.5deg;
+  --fan-k: 0.03927;
+  --hand-rn: var(--hand-n, 1);
+  --rise: 0px;
+  --hand-avail: calc(100vw - 2 * clamp(140px, 22vw, 420px));
+  --pitch: min(
+    calc(var(--card-w) * 0.9),
+    calc((var(--hand-avail) - var(--card-w)) / max(var(--hand-rn) - 1, 1))
+  );
+  --sag-pitch: min(var(--pitch), calc(var(--card-w) * 0.66));
+  --hand-half: calc((var(--hand-rn) - 1) / 2);
+  --sag-max: calc(var(--hand-half) * var(--hand-half) * var(--sag-pitch) * var(--fan-k));
+  --lift: calc(var(--card-h) * 0.14);
+  --hand-pad: calc(var(--card-w) * 0.15);
+  --hand-span: calc(var(--card-w) + (var(--hand-rn) - 1) * var(--pitch));
+  --hand-h: calc(var(--card-h) + var(--rise) + var(--sag-max) + var(--lift) + var(--hand-pad));
+  /* Where the own token corner sits above the bottom edge. */
+  --corner-mine-b: var(--gut);
+  --dock-b: var(--gut);
+  --dock-max-w: max(9rem, calc((100vw - var(--hand-span)) / 2 - 2 * var(--gut)));
+
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Portrait phones: larger cards from the spare height; a hand of more than five cards fans in two
+   levels (back row raised far enough that every card's centre stays clear, >= 0.9 card widths
+   apart within a row); the dock is one row between the own stack and the hand (turn pill left,
+   commands right) and the own tokens sit just above it on the left. */
+@media (orientation: portrait) {
+  .ct-field {
+    --tcw: clamp(60px, min(21vw, 8.8dvh), 96px);
+    --top-bar: 52px;
+    --fan: 3deg;
+    --fan-k: 0.02618;
+    --hand-rn: var(--hand-n2, 1);
+    --rise: calc(var(--card-h) * 0.66 * var(--hand-two, 0));
+    --hand-avail: calc(100vw - 2 * var(--gut));
+    --lift: calc(var(--card-h) * 0.1);
+    --hand-pad: calc(var(--card-w) * 0.1);
+    /* Own tokens: left of the own stack, just below the graveyard pile (two rows from there). */
+    --corner-mine-b: calc(50% - var(--tcw) * 0.523 - 18px - var(--tok-c-pitch) - var(--tok-c));
+    --dock-b: calc(var(--gut) + var(--hand-h));
+    --dock-max-w: none;
+  }
+  .ct-field .ct-hand-card {
+    --ht: var(--t2);
+    --hr: var(--r);
+    --hz: var(--z2);
+  }
+  /* The dock spans the own half from the stack's top down to the hand: commands as one row at
+     its bottom (above the hand), the turn pill left of the own stack under the own tokens. */
+  .ct-field .ct-dock {
+    top: calc(50% + var(--mid-h) / 2 + var(--row-gap));
+    left: var(--gut);
+    justify-content: flex-end;
+  }
+  .ct-field .ct-dock > [data-testid='turn-banner'] {
+    position: absolute;
+    left: 0;
+    top: calc(
+      var(--tcw) * 0.523 + 26px + var(--tok-c-pitch) + var(--tok-c) - var(--mid-h) / 2 -
+        var(--row-gap)
+    );
+    max-width: 26vw;
+    flex-wrap: wrap;
+    border-radius: 1rem;
+  }
+  .ct-field .ct-dock > [data-testid='turn-banner'] [data-testid='turn'] {
+    white-space: normal;
+    font-size: 0.9375rem;
+  }
+}
+
+/* Phones: compact commands (still 44px targets) so one row holds them; Deselect becomes an X
+   (its accessible name is unchanged). */
+@media (orientation: portrait), (orientation: landscape) and (max-height: 520px) {
+  .ct-field .ct-dock button {
+    min-width: 44px;
+    padding-inline: 0.6rem;
+    font-size: 1rem;
+  }
+  .ct-field .ct-dock .ct-long {
+    display: none;
+  }
+  .ct-field .ct-dock .ct-short {
+    display: inline-flex;
+  }
+}
+.ct-short {
+  display: none;
+}
+
+/* Landscape phones (short height): the card size follows the height so both halves fit
+   (stack + hand per half), with a flatter fan and smaller lift. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .ct-field {
+    --tcw: clamp(40px, calc((50dvh - 24px) / 3.55), 72px);
+    --fan: 2.5deg;
+    --fan-k: 0.0218;
+    --lift: calc(var(--card-h) * 0.08);
+    --hand-pad: calc(var(--card-w) * 0.08);
+    --row-gap: 4px;
+    --hand-avail: calc(100vw - 2 * clamp(120px, 20vw, 420px));
+  }
+  .ct-field .ct-stack {
+    --peek-y: calc(var(--card-h) * 0.03);
+  }
+}
+
+/* --- Middle line ------------------------------------------------------------------------------- */
+
+.ct-mid {
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  z-index: 4;
+  /* As tall as the piles, so a highlight of the middle band frames them. */
+  height: calc(var(--tcw) * 0.74 * 1.4125 + 8px);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.ct-mid > * {
+  pointer-events: auto;
+}
+/* An open pile popover rises above the stacks and hands. */
+.ct-mid:has(.ct-popover) {
+  z-index: 45;
+}
+
+/* Placeholder for the middle of the field (TableDivider): one thin ink line. */
+.ct-divider {
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  height: 0;
+  border-top: var(--line-width) solid var(--line-color);
+  box-shadow: 0 var(--line-halo-width) 0 var(--line-halo);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* --- Piles (G left, D right of the middle line) ---------------------------------------------- */
+
+.ct-pile {
+  --card-w: calc(var(--tcw) * 0.74);
+  --card-h: calc(var(--card-w) * 1.4125);
+  position: absolute;
+  top: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.ct-pile-grave {
+  left: calc(var(--gut) + 4px);
+}
+.ct-pile-deck {
+  right: calc(var(--gut) + 4px);
+}
+
+.ct-pile-layer {
+  position: absolute;
+  inset: 0;
+  border-radius: 0.375rem;
+}
+
+.ct-pile-count {
+  font-size: clamp(0.8rem, calc(var(--tcw) * 0.16), 1.1rem);
+  line-height: 1;
+  color: var(--ui-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ct-popover {
+  position: absolute;
+  z-index: 45;
+  width: min(calc(100vw - 2 * var(--gut)), 30rem);
+  max-height: 46dvh;
+  overflow-y: auto;
+}
+.ct-pile-grave .ct-popover {
+  left: 0;
+  top: calc(100% + 6px);
+}
+.ct-pile-deck .ct-popover {
+  right: 0;
+  top: calc(100% + 6px);
+  width: max-content;
+  max-width: calc(100vw - 2 * var(--gut));
+}
+
+/* --- Tokens ------------------------------------------------------------------------------------ */
+
+/* The middle row of seven token places: the only in-flow child of the field, so the grid centres
+   it exactly on the middle line. It stays static, so the tokens inside are placed on the field
+   and can travel to the corners. */
+.ct-token-track {
+  position: static;
+  z-index: 20;
+  width: calc(6 * var(--tok-pitch) + var(--tok));
+  height: var(--tok);
+  border-radius: 9999px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ct-token {
+  position: absolute;
+  z-index: 20;
+  transition:
+    left 700ms cubic-bezier(0.3, 0.7, 0.4, 1),
+    top 700ms cubic-bezier(0.3, 0.7, 0.4, 1),
+    width 700ms ease,
+    height 700ms ease;
+}
+.ct-token .cartignon-token {
+  width: 100%;
+  height: 100%;
+}
+
+/* Decorative boxes around each token corner (tutorial highlight only; tokens are not inside). */
+.ct-token-corner {
+  position: absolute;
+  z-index: 19;
+  left: calc(var(--gut) - 3px);
+  border-radius: 9999px;
+  pointer-events: none;
+}
+.ct-token-corner[data-side='theirs'] {
+  top: calc(var(--gut) - 3px);
+}
+.ct-token-corner[data-side='mine'] {
+  bottom: calc(var(--corner-mine-b) - 3px);
+}
+
+/* --- Stacks ------------------------------------------------------------------------------------ */
+
+.ct-seat {
+  position: absolute;
+  left: 50%;
+  z-index: 5;
+  transform: translateX(-50%);
+}
+.ct-seat[data-side='mine'] {
+  top: calc(50% + var(--mid-h) / 2 + var(--row-gap));
+}
+.ct-seat[data-side='theirs'] {
+  bottom: calc(50% + var(--mid-h) / 2 + var(--row-gap));
+}
+
+/* Physically stacked: each card lies over the previous one, offset right; own earlier cards peek
+   out on the left and the top, the opponent's (mirrored across the middle line) on the left and
+   the bottom. The Leading (last) card is always whole. */
+.ct-stack {
+  --peek-x: min(
+    calc(var(--card-w) * 0.28),
+    calc((42vw - var(--card-w)) / max(var(--stack-n, 1) - 1, 1))
+  );
+  --peek-y: calc(var(--card-h) * 0.06);
+  position: relative;
+  width: calc(var(--card-w) + (var(--stack-n, 1) - 1) * var(--peek-x));
+  height: calc(var(--card-h) + (var(--stack-n, 1) - 1) * var(--peek-y));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ct-stack > li {
+  position: absolute;
+  left: calc(var(--k) * var(--peek-x));
+  top: calc(var(--k) * var(--peek-y));
+  z-index: var(--z);
+}
+.ct-stack[data-side='theirs'] > li {
+  top: calc((var(--stack-n, 1) - 1 - var(--k)) * var(--peek-y));
+}
+.ct-stack > li > * {
+  box-shadow: -1px 1px 3px rgb(15 12 8 / 0.28);
+  border-radius: 0.375rem;
+}
+
+/* The seat badge (ATK) right of the stack, traps left of it. */
+.ct-badge {
+  position: absolute;
+  left: calc(100% + clamp(8px, 1.2vw, 18px));
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  white-space: nowrap;
+}
+.ct-atk {
+  font-size: clamp(1.5rem, calc(var(--tcw) * 0.36), 2.75rem);
+  line-height: 0.9;
+  font-variant-numeric: tabular-nums;
+}
+.ct-traps {
+  --card-w: calc(var(--tcw) * 0.62);
+  --card-h: calc(var(--card-w) * 1.4125);
+  position: absolute;
+  right: calc(100% + clamp(8px, 1.2vw, 18px));
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* --- Own hand ---------------------------------------------------------------------------------- */
+
+.ct-hand {
+  position: absolute;
+  left: 50%;
+  bottom: var(--gut);
+  z-index: 10;
+  width: var(--hand-span);
+  height: var(--hand-h);
+  transform: translateX(-50%);
+}
+.ct-hand-cards {
+  position: absolute;
+  inset: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+/* Turn cue: a soft glow of the turn colour under the hand of the seat that acts. */
+.ct-hand::before,
+.ct-opp-hand::before {
+  content: '';
+  position: absolute;
+  inset: -12% -10%;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--ui-turn) 30%, transparent),
+    transparent
+  );
+  opacity: 0;
+  transition: opacity 400ms ease;
+  pointer-events: none;
+}
+.ct-hand[data-active='true']::before,
+.ct-opp-hand[data-active='true']::before {
+  opacity: 1;
+}
+
+.ct-hand-card {
+  position: absolute;
+  /* Position in its row (--ht), row raise (--hr: 1 = back row) and stacking (--hz). */
+  --ht: var(--t);
+  --hr: 0;
+  --hz: var(--z);
+  left: calc(50% - var(--card-w) / 2 + var(--ht) * var(--pitch));
+  bottom: calc(
+    var(--hand-pad) + var(--sag-max) + var(--hr) * var(--rise) - var(--ht) * var(--ht) *
+      var(--sag-pitch) * var(--fan-k)
+  );
+  z-index: var(--hz);
+  width: var(--card-w);
+  height: var(--card-h);
+  transform: rotate(calc(var(--ht) * var(--fan)));
+  transform-origin: 50% 60%;
+}
+/* The card lifts inside its slot, so the slot keeps the pointer (no hover flicker). */
+.ct-hand-lift {
+  transition: transform 160ms ease-out;
+}
+.ct-hand-card[data-selected='true'],
+.ct-hand-card:focus-within {
+  z-index: 30;
+}
+.ct-hand-card[data-selected='true'] .ct-hand-lift,
+.ct-hand-card:focus-within .ct-hand-lift {
+  transform: translateY(calc(-1 * var(--lift)));
+}
+@media (hover: hover) {
+  .ct-hand-card:hover {
+    z-index: 31;
+  }
+  .ct-hand-card:hover .ct-hand-lift {
+    transform: translateY(calc(-1 * var(--lift)));
+  }
+}
+
+/* --- Opponent hand (backs only; hidden information) -------------------------------------------- */
+
+.ct-opp-hand {
+  --card-w: calc(var(--tcw) * 0.72);
+  --card-h: calc(var(--card-w) * 1.4125);
+  --opp-pitch: min(
+    calc(var(--card-w) * 0.5),
+    calc((100vw - 2 * var(--gut) - var(--card-w)) / max(var(--opp-n, 1) - 1, 1))
+  );
+  --opp-half: calc((var(--opp-n, 1) - 1) / 2);
+  --opp-sag: calc(var(--opp-half) * var(--opp-half) * var(--opp-pitch) * var(--fan-k));
+  position: absolute;
+  left: 50%;
+  top: calc(var(--gut) + var(--top-bar));
+  z-index: 10;
+  width: calc(var(--card-w) + (var(--opp-n, 1) - 1) * var(--opp-pitch));
+  height: calc(var(--card-h) + var(--opp-sag) + var(--card-w) * 0.15);
+  transform: translateX(-50%);
+}
+.ct-opp-card {
+  position: absolute;
+  left: calc(50% - var(--card-w) / 2 + var(--t) * var(--opp-pitch));
+  top: calc(var(--opp-sag) - var(--t) * var(--t) * var(--opp-pitch) * var(--fan-k));
+  width: var(--card-w);
+  transform: rotate(calc(-1 * var(--t) * var(--fan)));
+  transform-origin: 50% 40%;
+}
+.ct-opp-name {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+/* --- Floating clusters -------------------------------------------------------------------------- */
+
+.ct-dock {
+  position: absolute;
+  right: var(--gut);
+  bottom: var(--dock-b);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  max-width: var(--dock-max-w);
+  pointer-events: none;
+}
+.ct-dock > * {
+  pointer-events: auto;
+}
+
+.ct-round {
+  position: absolute;
+  top: calc(var(--gut) + 12px);
+  right: calc(var(--gut) + 56px);
+  z-index: 25;
+}
+
+.ct-toasts {
+  position: absolute;
+  left: 50%;
+  top: 27%;
+  z-index: 35;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: min(calc(100vw - 2 * var(--gut)), 30rem);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  text-align: center;
+}
+
+.ct-notices {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: min(calc(100vw - 2 * var(--gut)), 26rem);
+  transform: translate(-50%, -50%);
+}
+
+.ct-sheet {
+  position: absolute;
+  left: 50%;
+  bottom: var(--gut);
+  z-index: 32;
+  width: min(calc(100vw - 2 * var(--gut)), 44rem);
+  max-height: 58dvh;
+  overflow-y: auto;
+  transform: translateX(-50%);
+}
+
+.ct-log {
+  position: absolute;
+  top: calc(var(--gut) + 52px);
+  right: var(--gut);
+  z-index: 45;
+  width: min(calc(100vw - 2 * var(--gut)), 24rem);
+}
+
+.ct-round-over {
+  position: absolute;
+  left: 50%;
+  bottom: calc(50% + var(--mid-h) / 2 + 4px);
+  z-index: 26;
+  width: max-content;
+  max-width: min(calc(100vw - 2 * var(--gut) - 2 * var(--tcw)), 30rem);
+  transform: translateX(-50%);
+}
+
+/* Token rim: the ink edge plus, in the dark theme, the paper halo of the ink line, so a
+   face-down (dark) token still reads on the dark table. */
+.ct-token .cartignon-token-face {
+  box-shadow: 0 0 0 var(--line-halo-width) var(--line-halo);
+}

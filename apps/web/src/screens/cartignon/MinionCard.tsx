@@ -12,6 +12,7 @@ import {
   modifierSymbol,
   type ModifierSymbol,
 } from '../../match/cartignon/minionArt';
+import { PREVIEW_WIDTH } from '../../match/cartignon/cardPreview';
 import type { ModifierGlow } from '../../match/cartignon/modifierGlow';
 import type { TableCard } from '../../match/cartignon/tableModel';
 import { CardTexture } from './CardTexture';
@@ -150,6 +151,7 @@ export function MinionCard({
   leading = false,
   preview = true,
   focusable = false,
+  tapPreview = false,
 }: {
   card: TableCard;
   summary: CreatureSummary;
@@ -159,9 +161,11 @@ export function MinionCard({
   leading?: boolean;
   preview?: boolean;
   focusable?: boolean;
+  /** A tap or click also opens / toggles the preview. */
+  tapPreview?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const placement = useCardPreview(ref, preview);
+  const placement = useCardPreview(ref, preview, PREVIEW_WIDTH, tapPreview);
 
   return (
     <>

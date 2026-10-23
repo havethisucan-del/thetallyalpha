@@ -2,8 +2,10 @@ import type { ClockReading } from '../../match/cartignon/clock';
 import { ClockBadge } from './ClockBadge';
 
 /**
- * Who must act now, with the clock beside it. Highlighted (turn colour) when this seat acts.
- * The table keeps it in the fixed dock so it is always visible (RD-163, RD-164).
+ * Who must act now, with the clock beside it: a small pill at the top of the action dock, beside
+ * the own hand (RD-163, RD-164). Filled with the turn colour when this seat acts, quiet paper
+ * otherwise; the text always says it (colour is never the only cue). The hand of the seat that
+ * acts also glows (`HandRow` / `OpponentHand`).
  */
 export function TurnBanner({
   text,
@@ -14,21 +16,21 @@ export function TurnBanner({
   myAction: boolean;
   clock: ClockReading | null;
 }) {
-  const look = myAction ? 'bg-turn text-on-turn' : 'bg-paper-sunken text-ink';
+  const look = myAction ? 'bg-turn text-on-turn' : 'bg-paper-raised text-ink-muted';
   return (
     <div
-      className={`ink-line flex min-h-bar items-center justify-between gap-2 rounded-md px-3 py-1 ${look}`}
+      className={`ink-line flex items-center gap-2 rounded-full py-0.5 pl-3 ${clock ? 'pr-0.5' : 'pr-3'} ${look}`}
       data-testid="turn-banner"
     >
       <p
         role="status"
-        className="text-lg font-bold uppercase tracking-wide"
+        className="text-base leading-tight tracking-wide whitespace-nowrap"
         data-testid="turn"
         data-my-turn={myAction ? 'true' : 'false'}
       >
         {text}
       </p>
-      <ClockBadge reading={clock} />
+      <ClockBadge reading={clock} compact />
     </div>
   );
 }

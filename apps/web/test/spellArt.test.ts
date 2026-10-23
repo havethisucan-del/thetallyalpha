@@ -17,6 +17,7 @@ import {
 } from '../src/match/cartignon/spellArt';
 import type { SpellHint, TableCard } from '../src/match/cartignon/tableModel';
 import { CardView } from '../src/screens/cartignon/CardView';
+import { MAX_HAND_BACKS, OpponentHand } from '../src/screens/cartignon/OpponentHand';
 import { SeatBar } from '../src/screens/cartignon/SeatBar';
 
 const hint = (branch: SpellHint['branch'], castable = true): SpellHint => ({
@@ -141,24 +142,30 @@ describe('spell and trap markup', () => {
 describe('opponent hand backs', () => {
   const area = {
     seat: 1 as const,
+    side: 'theirs' as const,
     handCount: 9,
     atk: 0,
     stack: [],
     traps: [],
     armedTrapCount: 0,
   };
-  it('draws at most six decorative backs next to the count', () => {
+  it('fans one decorative back per card and names the count for assistive tech', () => {
     const html = renderToStaticMarkup(
-      createElement(SeatBar, { area: { ...area, side: 'theirs' }, tokens: 0 }),
+      createElement(OpponentHand, { area, name: 'Opponent', active: false }),
     );
-    expect(html.match(/data-testid="card-back"/g)).toHaveLength(6);
-    expect(html).toContain('data-testid="opponent-hand-backs"');
-    expect(html).toContain('>9</dd>');
+    expect(html.match(/data-testid="card-back"/g)).toHaveLength(9);
+    expect(html).toMatch(/aria-hidden="true"[^>]*data-testid="opponent-hand-backs"/);
+    expect(html).toContain('Opponent: 9 cards in hand');
   });
-  it('draws no backs for the own hand', () => {
+  it('caps the drawn backs at MAX_HAND_BACKS', () => {
     const html = renderToStaticMarkup(
-      createElement(SeatBar, { area: { ...area, side: 'mine' }, tokens: 0 }),
+      createElement(OpponentHand, { area: { ...area, handCount: 20 }, name: 'Bot', active: true }),
     );
+    expect(html.match(/data-testid="card-back"/g)).toHaveLength(MAX_HAND_BACKS);
+  });
+  it('draws no backs on the seat badge', () => {
+    const html = renderToStaticMarkup(createElement(SeatBar, { area, tokens: 0 }));
     expect(html).not.toContain('card-back');
+    expect(html).toContain('data-testid="theirs-atk"');
   });
 });

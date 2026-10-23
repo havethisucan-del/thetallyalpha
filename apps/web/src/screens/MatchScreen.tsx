@@ -20,6 +20,7 @@ import {
 } from '../lib/synthetic';
 import { CartignonDebugView } from './CartignonDebugView';
 import { CartignonTable } from './cartignon/CartignonTable';
+import { TableMenu } from './cartignon/TableMenu';
 
 interface MatchScreenProps {
   snapshot: MatchSnapshot;
@@ -103,9 +104,9 @@ export function MatchScreen(props: MatchScreenProps) {
   return <SyntheticMatchScreen {...props} />;
 }
 
-/** Slim 44px toolbar button for the full-viewport Cartignon layout. */
+/** 44px item of the corner menu in the full-window Cartignon layout. */
 const toolbarButtonClass =
-  'ink-line inline-flex min-h-target min-w-target items-center justify-center rounded-md ' +
+  'ink-line inline-flex min-h-target min-w-target items-center justify-start rounded-md ' +
   'bg-paper-raised px-3 text-lg leading-none text-ink transition-colors ' +
   'hover:bg-paper-sunken aria-pressed:bg-paper-sunken';
 
@@ -121,6 +122,7 @@ function CartignonMatchScreen({
   const parts = snapshot.cartignon;
   const [showDebug, setShowDebug] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [logOpen, setLogOpen] = useState(false);
   // Hooks run before the early return below; the clock ticks only while it changes over time.
   const clock = useClock(snapshot.clock, snapshot.clockReceivedAt, view?.seat ?? null);
   if (!view || !parts) return <UnreadableMatch onHome={onHome} />;
@@ -144,48 +146,64 @@ function CartignonMatchScreen({
   );
   const showNotices = snapshot.error || (outcome && !hideOutcome);
 
-  // Full-viewport layout (App gives this screen the remaining height): one slim toolbar row,
-  // then either the table (internal scroll + fixed dock) or the scrolling debug view.
+  // Full-window layout (TableLayout gives this screen the whole viewport): the table fills it,
+  // with the corner menu (theme, log, debug, leave) floating top right; the debug view replaces
+  // the table and scrolls.
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2">
-      <div className="flex flex-none items-center justify-between gap-2">
-        <div className="min-w-0">
-          {statusBar}
-          <p className="sr-only">
-            Phase:{' '}
-            <span data-testid="phase" data-phase={phase}>
-              {phase}
-            </span>
-          </p>
-        </div>
-        <div className="flex flex-none gap-2">
-          <ThemeToggle />
-          <button
-            type="button"
-            className={toolbarButtonClass}
-            aria-pressed={showDebug}
-            onClick={() => {
-              setShowDebug((shown) => !shown);
-            }}
-            data-testid="debug-toggle"
-          >
-            Debug
-          </button>
-          {!outcome && (
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <p className="sr-only">
+        Phase:{' '}
+        <span data-testid="phase" data-phase={phase}>
+          {phase}
+        </span>
+      </p>
+      <TableMenu status={statusBar}>
+        {(close) => (
+          <>
+            <ThemeToggle className="justify-start" />
+            {!showDebug && (
+              <button
+                type="button"
+                className={toolbarButtonClass}
+                aria-pressed={logOpen}
+                onClick={() => {
+                  setLogOpen((shown) => !shown);
+                  close();
+                }}
+                data-testid="log-toggle"
+              >
+                Log
+              </button>
+            )}
             <button
               type="button"
               className={toolbarButtonClass}
+              aria-pressed={showDebug}
               onClick={() => {
-                if (shouldConfirmLeave(snapshot)) setConfirmLeave(true);
-                else onHome();
+                setShowDebug((shown) => !shown);
+                close();
               }}
-              data-testid="leave-match"
+              data-testid="debug-toggle"
             >
-              Leave
+              Debug
             </button>
-          )}
-        </div>
-      </div>
+            {!outcome && (
+              <button
+                type="button"
+                className={toolbarButtonClass}
+                onClick={() => {
+                  close();
+                  if (shouldConfirmLeave(snapshot)) setConfirmLeave(true);
+                  else onHome();
+                }}
+                data-testid="leave-match"
+              >
+                Leave
+              </button>
+            )}
+          </>
+        )}
+      </TableMenu>
       <LeaveConfirmDialog
         open={confirmLeave && shouldConfirmLeave(snapshot)}
         onLeave={onHome}
@@ -195,7 +213,7 @@ function CartignonMatchScreen({
       />
 
       {showDebug ? (
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-4">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 pt-16 pb-4">
           {notices}
           <p className="text-sm text-ink-muted">
             Phase: <span className="font-semibold">{phase}</span>
@@ -225,6 +243,10 @@ function CartignonMatchScreen({
           log={narrateEvents(snapshot.eventLog, parts.public, view.seat)}
           eventLog={snapshot.eventLog}
           notices={showNotices ? notices : null}
+          logOpen={logOpen}
+          onCloseLog={() => {
+            setLogOpen(false);
+          }}
           {...(opponentLabel === undefined ? {} : { opponentLabel })}
           onCommand={(command) => {
             onAction(commandToAction(command));

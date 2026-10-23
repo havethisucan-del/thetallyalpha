@@ -28,14 +28,15 @@ export function PageLayout({
 }
 
 /**
- * Full-viewport layout of a Cartignon match: no page header, the table fills the remaining height
- * and scrolls internally (R8b). The theme toggle sits in the match toolbar (MatchScreen).
+ * Full-window layout of a Cartignon match: no page header and no column, the table fills the
+ * whole viewport (100dvw x 100dvh, no page scroll) and scales to it. The theme toggle sits in the
+ * match's corner menu (MatchScreen).
  */
 export function TableLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="mx-auto flex h-dvh w-full max-w-3xl flex-col overflow-hidden px-3 pt-[max(0.5rem,env(safe-area-inset-top))]">
+    <div className="fixed inset-0 flex h-dvh w-dvw flex-col overflow-hidden pb-[env(safe-area-inset-bottom)]">
       <h1 className="sr-only">{GAME_NAME}</h1>
-      <main className="flex min-h-0 flex-1 flex-col">{children}</main>
+      <main className="relative flex min-h-0 flex-1 flex-col">{children}</main>
     </div>
   );
 }
