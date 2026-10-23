@@ -1,0 +1,107 @@
+import { expandTestSeed, toCartignonAction } from '@cartignon/game-core';
+import { describe, expect, it } from 'vitest';
+import { commandToAction } from '../src/lib/cartignon';
+import { buildTutorial } from '../src/tutorial/buildTutorial';
+import { TUTORIAL_SCRIPT } from '../src/tutorial/script';
+import { TutorialMatch } from '../src/tutorial/tutorialMatch';
+import type { TutorialScript } from '../src/tutorial/types';
+
+/** ADR-0018 decision 3: the human may only send the current step's command. */
+
+function newMatch(script: TutorialScript = TUTORIAL_SCRIPT): TutorialMatch {
+  return new TutorialMatch({
+    tutorial: buildTutorial(script),
+    delay: () => 0,
+    botSeed: expandTestSeed(9),
+  });
+}
+
+/** Presses Continue until the current step is not a Continue step. */
+function continueToGate(match: TutorialMatch): void {
+  while (match.getTutorialState().step.gate.kind === 'continue') match.continue();
+}
+
+describe('tutorial gating', () => {
+  it('shows no legal commands on Continue steps and refuses every action', () => {
+    const match = newMatch();
+    const snapshot = match.getSnapshot();
+    expect(match.getTutorialState().step.gate.kind).toBe('continue');
+    expect(snapshot.cartignon?.private.legal).toEqual([]);
+    const revision = snapshot.view?.revision;
+    expect(match.sendAction(toCartignonAction({ type: 'endTurn' }))).toBeNull();
+    expect(match.getSnapshot().view?.revision).toBe(revision);
+    match.leave();
+  });
+
+  it('returns a stable snapshot object between changes', () => {
+    const match = newMatch();
+    expect(match.getSnapshot()).toBe(match.getSnapshot());
+    const before = match.getSnapshot();
+    match.continue();
+    expect(match.getSnapshot()).not.toBe(before);
+    match.leave();
+  });
+
+  it('allows exactly the gated command on a command step', () => {
+    const match = newMatch();
+    continueToGate(match);
+    const state = match.getTutorialState();
+    expect(state.step.id).toBe('flow-play');
+    const f3 = match.cardIdOf('C-F3');
+    expect(match.getSnapshot().cartignon?.private.legal).toEqual([
+      { type: 'playCreature', cardId: f3 },
+    ]);
+    // Legal for the engine, refused by the coach.
+    expect(match.sendAction(toCartignonAction({ type: 'endTurn' }))).toBeNull();
+    expect(match.getTutorialState()).toBe(state);
+    const action = commandToAction({ type: 'playCreature', cardId: f3 });
+    expect(match.sendAction(action)).not.toBeNull();
+    expect(match.getSnapshot().lastResult?.status).toBe('accepted');
+    expect(match.getTutorialState().step.id).toBe('flow-end-turn');
+    expect(match.getSnapshot().cartignon?.private.legal).toEqual([{ type: 'endTurn' }]);
+    match.leave();
+  });
+
+  it('holds the bot until a watch step, then advances on the awaited event', async () => {
+    const match = newMatch();
+    continueToGate(match);
+    match.sendAction(commandToAction({ type: 'playCreature', cardId: match.cardIdOf('C-F3') }));
+    match.sendAction(commandToAction({ type: 'endTurn' }));
+    expect(match.getTutorialState().step.id).toBe('combat-bot-turn');
+    expect(match.getSnapshot().cartignon?.private.legal).toEqual([]);
+    await match.whenIdle();
+    expect(match.getTutorialState().step.id).toBe('combat-nerf');
+    expect(match.getSnapshot().view?.phase.activeSeat).toBe(0);
+    match.leave();
+  });
+
+  it('turns gating off when the gated command is not legal (never stuck)', () => {
+    const steps = TUTORIAL_SCRIPT.steps.map((step) =>
+      step.id === 'flow-play'
+        ? {
+            ...step,
+            gate: {
+              kind: 'command' as const,
+              command: { type: 'playCreature' as const, defId: 'C-A5' },
+            },
+          }
+        : step,
+    );
+    const match = newMatch({ ...TUTORIAL_SCRIPT, steps });
+    continueToGate(match);
+    expect(match.getTutorialState().offScript).toBe(true);
+    const legal = match.getSnapshot().cartignon?.private.legal ?? [];
+    expect(legal.length).toBeGreaterThan(1);
+    expect(match.sendAction(toCartignonAction({ type: 'endTurn' }))).not.toBeNull();
+    match.leave();
+  });
+
+  it('skip stops the coach and lifts the gate', () => {
+    const match = newMatch();
+    match.skip();
+    expect(match.getTutorialState().status).toBe('skipped');
+    expect(match.continue()).toBe(false);
+    expect(match.getSnapshot().cartignon?.private.legal.length).toBeGreaterThan(0);
+    match.leave();
+  });
+});

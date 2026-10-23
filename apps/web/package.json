@@ -1,0 +1,31 @@
+{
+  "name": "@cartignon/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "build:static": "tsc -b && vite build --mode static",
+    "preview": "vite preview",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@cartignon/ai": "workspace:*",
+    "@cartignon/game-core": "workspace:*",
+    "@cartignon/protocol": "workspace:*",
+    "@colyseus/sdk": "0.18.5",
+    "@fontsource/jaini": "5.3.0",
+    "phaser": "4.2.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "tailwindcss": "4.3.3",
+    "vite": "8.3.4"
+  }
+}

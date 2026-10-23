@@ -1,0 +1,69 @@
+/*
+ * Shared by every card face (minion, spell, back): the calibrated texture layers and the enlarged
+ * preview shell. Sizes are relative to the card width (`cqw`) where the face sets
+ * `container-type: inline-size`.
+ */
+
+/* Grey-centred noise, soft-light: texture only, the mean colour stays on its token. */
+.card-tex {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+.card-tex-0 {
+  background-size: 150px;
+  opacity: 0.35;
+}
+.card-tex-1,
+.card-tex-2 {
+  background-size: 110px;
+  opacity: 0.25;
+}
+.card-tex-3 {
+  background-size: 300px;
+  opacity: 0.3;
+}
+
+/* Outer ink edge of a card face, drawn over the art so the face layout keeps its full size. The
+   face itself carries the dark-theme paper halo as an outline (transparent in the light theme). */
+.card-edge {
+  outline: var(--line-halo-width) solid var(--line-halo);
+}
+.card-edge::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  border: var(--line-width) solid var(--line-color);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* The enlarged copy: fixed over everything, never intercepts the pointer. */
+.card-preview {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  border-radius: 0.5rem;
+  box-shadow:
+    0 10px 25px rgb(15 23 42 / 0.35),
+    0 2px 6px rgb(15 23 42 / 0.25);
+  transform-origin: center;
+  animation: card-preview-in 140ms ease-out;
+}
+
+@keyframes card-preview-in {
+  from {
+    transform: scale(var(--preview-from, 0.4));
+    opacity: 0.6;
+  }
+}
+
+/* Reduced motion: the preview appears instantly. */
+@media (prefers-reduced-motion: reduce) {
+  .card-preview {
+    animation: none;
+  }
+}

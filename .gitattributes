@@ -1,0 +1,7 @@
+* text=auto eol=lf
+*.png binary
+*.ico binary
+# Double-click launchers: the Mac one must keep LF, cmd.exe wants CRLF.
+*.command text eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf

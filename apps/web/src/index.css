@@ -1,0 +1,424 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens (R8b). Base colours still come from Tailwind's default palette; the tokens below
+ * add sizes, status colours and the Cartignon colour identity (see match/cartignon/colors.ts).
+ *
+ * Generated utilities (Tailwind 4 theme namespaces):
+ *   --size-target          size-target (44px square; also var(--size-target))
+ *   --spacing-target       w-/h-/min-w-/min-h-/p-/gap-target ... (44px touch target)
+ *   --spacing-card-w       w-card-w, min-w-card-w (64px)
+ *   --spacing-card-h       h-card-h, min-h-card-h (90px; minion art is 279:394, ~90.4px at 64px wide)
+ *   --spacing-bar          h-bar, min-h-bar (48px)
+ *   --color-turn / -on-turn   bg-turn, text-turn, border-turn, outline-turn / text-on-turn
+ *   --color-turn-hover        hover:bg-turn-hover (on-turn ink >= 10:1; values per theme, see below)
+ *   --color-warn / -on-warn   bg-warn, ... / text-on-warn (clock under 10 s, round-over callout edge)
+ *   --color-ahead / -on-ahead bg-ahead / text-on-ahead ("Leads" chip on the seat with more ATK)
+ *   --color-hint-secondary / -hint-secondary-edge / -on-hint-secondary
+ *                             Secondary spell-hint badge (fill / border / ink); Primary uses turn
+ *   --color-cartignon-<c>     bg-cartignon-<c>, border-cartignon-<c>, ...
+ *   --color-cartignon-<c>-ink text-cartignon-<c>-ink (text on that swatch)
+ *   <c> = orange | yellow | green | blue | indigo | violet | red
+ *   --color-line              border-line, bg-line, ... (the one ink line colour, see below)
+ * Raw variables without utilities: --card-w, --card-h, --bar-h (use e.g. w-(--card-w)).
+ *
+ * Ink line (one outline for every UI edge: panels, buttons, chips, badges, colour cells, tokens,
+ * card and pile edges, dividers). Modelled on the line-art figures (*_Blacklines.svg, filled ink)
+ * and the user's reference marginalia (assets/cards/uzor.jpg: warm brown-black ink on paper):
+ *   --line-color        warm brown-black ink (sampled from uzor.jpg outlines), same in both themes
+ *   --line-width        the single line weight (2px)
+ *   --line-halo         dark theme only: a 1px paper-coloured rim outside the line, so the black
+ *   --line-halo-width   ink still reads on dark surfaces (transparent in the light theme)
+ * Classes (base layer, so the global :focus-visible ring still replaces the halo outline):
+ *   .ink-line    full outline (border) + halo (outline)
+ *   .ink-line-t  top divider + halo below it;  .ink-line-l  left divider + halo right of it
+ * Lines inside a coloured/light surface (colour-cell dividers, token rims) use the plain
+ * border-line / border-(length:--line-width) utilities and need no halo.
+ * State indicators are NOT outlines and keep their own colours: focus rings (sky, >= 3:1),
+ * selected / on-turn rings (turn), Leading ring, the viewer's token glow, log actor edges.
+ * Warn/turn are background colours: always pair them with their -on-* ink.
+ * Tailwind emits @theme variables only when a utility or a source file references them; the
+ * --cartignon-* variables in the base layer are always emitted.
+ */
+/*
+ * Manuscript UI tokens (2026-10-23): the whole app shares the card faces' look (warm paper, ink
+ * line, jewel tones; reference assets/cards/uzor.jpg). Every value is a --ui-* variable defined
+ * per theme in the base layer below; the utilities reference them (`@theme inline`), so they
+ * follow `data-theme` on <html>.
+ *   --color-paper           bg-paper            page background
+ *   --color-paper-raised    bg-paper-raised     panels, secondary buttons, dialogs, inputs
+ *   --color-paper-sunken    bg-paper-sunken     seat bars, idle turn banner, hover/checked fills
+ *   --color-ink             text-ink            body text (light: the line ink; dark: card paper)
+ *   --color-ink-muted       text-ink-muted      secondary text (>= 5.8:1 on every paper)
+ *   --color-turn / -hover / -on-turn            the one accent: primary buttons, on-turn rings,
+ *                                               selection (light: ultramarine; dark: card blue)
+ *   --color-rubric / -rubric-surface            errors (rubrication red), text >= 6:1
+ *   --color-gold            decorative rules and flourishes only (never text)
+ *   --color-focus           focus rings (>= 3:1 against every paper)
+ *   --font-sans             Jaini everywhere (single weight 400; no synthesized bold)
+ * Theme switching: no attribute = follows prefers-color-scheme; data-theme="light" | "dark" on
+ * <html> (src/theme/theme.ts) overrides it. The `dark:` variant follows the same rule.
+ * Contrast (WCAG 2.x, computed): light ink/paper 14.0, muted/sunken 5.8, turn/paper 7.3,
+ * on-turn/turn 8.2, rubric/paper 6.4; dark ink/paper 14.8, muted/sunken 7.0, turn/paper 8.7,
+ * on-turn/turn 8.0, rubric/paper 9.4.
+ */
+@custom-variant dark {
+  &:where([data-theme='dark'], [data-theme='dark'] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme='light']), :root:not([data-theme='light']) *) {
+      @slot;
+    }
+  }
+}
+
+@theme {
+  --size-target: 44px;
+  --card-w: 64px;
+  --card-h: 90px;
+  --bar-h: 48px;
+
+  --font-sans: 'Jaini', 'Iowan Old Style', Georgia, serif;
+
+  /* Tailwind v3 amber-500. */
+  --color-warn: #f59e0b;
+  --color-on-warn: #0f172a;
+
+  /* Tailwind v3 emerald-700: white ink 5.48:1. Text always says "Leads"; colour is a second cue. */
+  --color-ahead: #047857;
+  --color-on-ahead: #ffffff;
+
+  /* Secondary spell hint: amber-100 fill, amber-700 edge (4.4:1 against the fill, >= 3:1 on
+     both card faces), slate-900 ink (15.5:1). A different hue AND shape from Primary (solid turn). */
+  --color-hint-secondary: #fef3c7;
+  --color-hint-secondary-edge: #b45309;
+  --color-on-hint-secondary: #0f172a;
+}
+
+/*
+ * `inline` makes utilities reference the source variable directly (e.g. bg-cartignon-blue emits
+ * var(--cartignon-color-blue)), so it resolves on the element and follows a [data-palette]
+ * ancestor instead of being frozen at :root.
+ */
+@theme inline {
+  --spacing-target: var(--size-target);
+  --spacing-card-w: var(--card-w);
+  --spacing-card-h: var(--card-h);
+  --spacing-bar: var(--bar-h);
+
+  --color-line: var(--line-color);
+
+  --color-paper: var(--ui-paper);
+  --color-paper-raised: var(--ui-paper-raised);
+  --color-paper-sunken: var(--ui-paper-sunken);
+  --color-ink: var(--ui-ink);
+  --color-ink-muted: var(--ui-ink-muted);
+  --color-turn: var(--ui-turn);
+  --color-turn-hover: var(--ui-turn-hover);
+  --color-on-turn: var(--ui-on-turn);
+  --color-rubric: var(--ui-rubric);
+  --color-rubric-surface: var(--ui-rubric-surface);
+  --color-gold: var(--ui-gold);
+  --color-focus: var(--ui-focus);
+
+  --color-cartignon-orange: var(--cartignon-color-orange);
+  --color-cartignon-yellow: var(--cartignon-color-yellow);
+  --color-cartignon-green: var(--cartignon-color-green);
+  --color-cartignon-blue: var(--cartignon-color-blue);
+  --color-cartignon-indigo: var(--cartignon-color-indigo);
+  --color-cartignon-violet: var(--cartignon-color-violet);
+  --color-cartignon-red: var(--cartignon-color-red);
+
+  --color-cartignon-orange-ink: var(--cartignon-ink-orange);
+  --color-cartignon-yellow-ink: var(--cartignon-ink-yellow);
+  --color-cartignon-green-ink: var(--cartignon-ink-green);
+  --color-cartignon-blue-ink: var(--cartignon-ink-blue);
+  --color-cartignon-indigo-ink: var(--cartignon-ink-indigo);
+  --color-cartignon-violet-ink: var(--cartignon-ink-violet);
+  --color-cartignon-red-ink: var(--cartignon-ink-red);
+}
+
+@layer base {
+  /* UI theme tokens (see the manuscript header above). Light = warm paper; dark = night ink. The
+     dark values are listed twice: once for the OS preference (no explicit choice) and once for
+     an explicit data-theme="dark". Keep the two blocks identical. */
+  :root {
+    color-scheme: light;
+    --ui-paper: #f1e7d0;
+    --ui-paper-raised: #faf5e8;
+    --ui-paper-sunken: #e4d5b5;
+    --ui-ink: #211a12;
+    --ui-ink-muted: #5c4a33;
+    /* Ultramarine (uzor.jpg acanthus blue, deepened for AA): paper ink 8.2:1. */
+    --ui-turn: #1d4596;
+    --ui-turn-hover: #163672;
+    --ui-on-turn: #faf5e8;
+    --ui-rubric: #9f1d14;
+    --ui-rubric-surface: #f6e0d6;
+    --ui-gold: #8a5d0c;
+    --ui-focus: #1d4596;
+    /* Gold-leaf speckle of the page background (decorative). */
+    --ui-speckle: rgb(138 93 12 / 0.16);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      color-scheme: dark;
+      --ui-paper: #16120d;
+      --ui-paper-raised: #221c15;
+      --ui-paper-sunken: #2e2619;
+      --ui-ink: #efe4cc;
+      --ui-ink-muted: #c2b08c;
+      /* The card blue (cartignon blue swatch); dark ink on it 8.0:1. */
+      --ui-turn: #38bdf8;
+      --ui-turn-hover: #7dd3fc;
+      --ui-on-turn: #211a12;
+      --ui-rubric: #f4a48e;
+      --ui-rubric-surface: #3a1712;
+      --ui-gold: #d9a441;
+      --ui-focus: #38bdf8;
+      --ui-speckle: rgb(217 164 65 / 0.1);
+    }
+  }
+  :root[data-theme='dark'] {
+    color-scheme: dark;
+    --ui-paper: #16120d;
+    --ui-paper-raised: #221c15;
+    --ui-paper-sunken: #2e2619;
+    --ui-ink: #efe4cc;
+    --ui-ink-muted: #c2b08c;
+    --ui-turn: #38bdf8;
+    --ui-turn-hover: #7dd3fc;
+    --ui-on-turn: #211a12;
+    --ui-rubric: #f4a48e;
+    --ui-rubric-surface: #3a1712;
+    --ui-gold: #d9a441;
+    --ui-focus: #38bdf8;
+    --ui-speckle: rgb(217 164 65 / 0.1);
+  }
+
+  :root {
+    /* Cartignon swatches: NORMAL_PALETTE in colors.ts. Ink mirrors each swatch's darkText
+       (chosen for >= 4.5:1 where either ink can reach it). */
+    --cartignon-ink-dark: #0f172a;
+    --cartignon-ink-light: #ffffff;
+
+    --cartignon-color-orange: #f97316;
+    --cartignon-color-yellow: #facc15;
+    --cartignon-color-green: #059669;
+    --cartignon-color-blue: #38bdf8;
+    --cartignon-color-indigo: #4338ca;
+    --cartignon-color-violet: #c026d3;
+    --cartignon-color-red: #dc2626;
+
+    --cartignon-ink-orange: var(--cartignon-ink-dark);
+    --cartignon-ink-yellow: var(--cartignon-ink-dark);
+    /* Dark ink on green: 4.74:1 vs 3.77:1 for white. */
+    --cartignon-ink-green: var(--cartignon-ink-dark);
+    /* Sky-400 (user, 2026-10-22): dark ink 8.4:1, white only 2.1:1. */
+    --cartignon-ink-blue: var(--cartignon-ink-dark);
+    --cartignon-ink-indigo: var(--cartignon-ink-light);
+    --cartignon-ink-violet: var(--cartignon-ink-light);
+    --cartignon-ink-red: var(--cartignon-ink-light);
+  }
+
+  /* COLORBLIND_PALETTE in colors.ts (Okabe-Ito); set data-palette on any ancestor. */
+  [data-palette='colorblind'] {
+    --cartignon-color-orange: #e69f00;
+    --cartignon-color-yellow: #f0e442;
+    --cartignon-color-green: #009e73;
+    --cartignon-color-blue: #56b4e9;
+    --cartignon-color-indigo: #0072b2;
+    --cartignon-color-violet: #cc79a7;
+    --cartignon-color-red: #d55e00;
+
+    --cartignon-ink-orange: var(--cartignon-ink-dark);
+    --cartignon-ink-yellow: var(--cartignon-ink-dark);
+    /* Dark ink wherever it reaches 4.5:1 (green 5.22, sky blue 7.74, violet 5.83, red 4.62). */
+    --cartignon-ink-green: var(--cartignon-ink-dark);
+    --cartignon-ink-blue: var(--cartignon-ink-dark);
+    --cartignon-ink-indigo: var(--cartignon-ink-light);
+    --cartignon-ink-violet: var(--cartignon-ink-dark);
+    --cartignon-ink-red: var(--cartignon-ink-dark);
+  }
+
+  /* Match tokens (TokenTrack): the viewer's glow. Amber edge >= 3:1 on the page surface
+     (amber-700 on slate-50/white 4.9:1; amber-400 on slate-900 9.3:1), soft halo on top. */
+  :root {
+    --cartignon-token-edge: #b45309;
+    --cartignon-token-glow: rgb(251 191 36 / 0.75);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --cartignon-token-edge: #fbbf24;
+      --cartignon-token-glow: rgb(251 191 36 / 0.55);
+    }
+  }
+  :root[data-theme='dark'] {
+    --cartignon-token-edge: #fbbf24;
+    --cartignon-token-glow: rgb(251 191 36 / 0.55);
+  }
+
+  /* Ink line tokens (see the header comment). Ink sampled from uzor.jpg: darkest outline pixels
+     ~#1e1a0f, outline mean ~#362e21; #211a12 sits between (JPEG blur lightens the cores). */
+  :root {
+    --line-color: #211a12;
+    --line-width: 2px;
+    --line-halo: transparent;
+    --line-halo-width: 1px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      /* The card-back frame paper (#efe4cc); 14.8:1 against the dark paper, 13.4:1 raised. */
+      --line-halo: #efe4cc;
+    }
+  }
+  :root[data-theme='dark'] {
+    --line-halo: #efe4cc;
+  }
+
+  .ink-line {
+    border: var(--line-width) solid var(--line-color);
+    outline: var(--line-halo-width) solid var(--line-halo);
+    outline-offset: 0;
+  }
+  .ink-line-t {
+    border-top: var(--line-width) solid var(--line-color);
+    box-shadow: inset 0 var(--line-halo-width) 0 var(--line-halo);
+  }
+  .ink-line-l {
+    border-left: var(--line-width) solid var(--line-color);
+    box-shadow: inset var(--line-halo-width) 0 0 var(--line-halo);
+  }
+
+  /* Paper with a faint gold-leaf speckle (two offset dot grids, like the uzor.jpg ground). */
+  body {
+    @apply min-h-dvh bg-paper font-sans text-ink antialiased;
+    background-image:
+      radial-gradient(circle at center, var(--ui-speckle) 0 1px, transparent 1.5px),
+      radial-gradient(circle at center, var(--ui-speckle) 0 0.75px, transparent 1.25px);
+    background-size:
+      23px 23px,
+      37px 37px;
+    background-position:
+      0 0,
+      11px 17px;
+    /* Jaini has one weight: bold utilities keep it upright instead of smearing a fake bold. */
+    font-synthesis-weight: none;
+    /* Jaini runs small; a slightly larger base keeps body text readable. */
+    font-size: 1.0625rem;
+    line-height: 1.4;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-focus;
+  }
+
+  /* R8d: honour reduced motion everywhere (transitions and animations effectively off). */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/*
+ * Match tokens as physical round tokens (TokenTrack). The inner element flips (rotateY) between
+ * its face-down back and its face-up swatch; a token held by the viewer gets a round amber halo
+ * that pulses, deliberately unlike the static rectangular rings used on cards.
+ */
+@layer components {
+  /* Home title: a large manuscript heading with a rubricated initial and a gold double rule. */
+  .ui-title {
+    font-size: clamp(3.5rem, 19vw, 7.5rem);
+    line-height: 0.9;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ui-ink);
+  }
+  .ui-title::first-letter {
+    color: var(--ui-rubric);
+  }
+  .ui-title::after {
+    content: '';
+    display: block;
+    width: 70%;
+    height: 6px;
+    margin: 0.35em auto 0;
+    border-top: 2px solid var(--ui-gold);
+    border-bottom: 1px solid var(--ui-gold);
+  }
+
+  /* Header rule under the page title: gold double line. */
+  .ui-rule {
+    border-bottom: 3px double var(--ui-gold);
+  }
+
+  /* The token lies on its colour cell (80% of the cell, so the cell shows around it); z-index
+     keeps the viewer's glow above the neighbouring cells. */
+  .cartignon-token {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 80%;
+    aspect-ratio: 1;
+    border-radius: 9999px;
+    perspective: 400px;
+  }
+
+  .cartignon-token-inner {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    transition: transform 600ms cubic-bezier(0.3, 0.7, 0.4, 1.2);
+  }
+
+  .cartignon-token-inner[data-face='down'] {
+    transform: rotateY(180deg);
+  }
+
+  /* Both faces: flat disc with the ink rim (it lies on its colour cell, so no halo is needed). */
+  .cartignon-token-face {
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    border: var(--line-width) solid var(--line-color);
+    backface-visibility: hidden;
+  }
+
+  /* Face-down back: a plain dark disc in the card-back paper colour (user decision 2026-10-22). */
+  .cartignon-token-back {
+    transform: rotateY(180deg);
+    background: #1c1917;
+  }
+
+  .cartignon-token-mine {
+    box-shadow:
+      0 0 0 3px var(--cartignon-token-edge),
+      0 0 10px 4px var(--cartignon-token-glow);
+    animation: cartignon-token-glow 2.4s ease-in-out infinite;
+  }
+
+  @keyframes cartignon-token-glow {
+    50% {
+      box-shadow:
+        0 0 0 3px var(--cartignon-token-edge),
+        0 0 18px 8px var(--cartignon-token-glow);
+    }
+  }
+
+  /* Reduced motion: no flip, no pulse; the static end state (face, edge + halo) remains. */
+  @media (prefers-reduced-motion: reduce) {
+    .cartignon-token-inner {
+      transition: none;
+    }
+    .cartignon-token-mine {
+      animation: none;
+    }
+  }
+}

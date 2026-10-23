@@ -1,0 +1,94 @@
+# Allowlist (ADR-0017 decision 5): the public repo holds only what is needed to build, run and
+# test the game. Everything at the root is ignored unless re-included below. Planning docs, ADRs,
+# Claude Code framework files and the user's original art go to a separate private repo.
+/*
+
+# Code (everything below these directories, e.g. tests/e2e-static/, apps/web/src/tutorial/,
+# apps/web/src/theme/, packages/game-core/src/cartignon/preset.ts, unless excluded further down)
+!/apps/
+!/packages/
+!/tests/
+!/scripts/
+# Claude Code framework tool (regenerates docs/PROJECT_MAP.md), private repo only
+/scripts/build_project_map.py
+
+# Root build, lint, format and test configuration
+!/.editorconfig
+!/.env.example
+!/.gitattributes
+!/.gitignore
+!/.nvmrc
+!/.prettierignore
+!/.prettierrc.json
+!/eslint.config.js
+!/package.json
+!/playwright.config.ts
+!/pnpm-lock.yaml
+!/pnpm-workspace.yaml
+!/tsconfig.base.json
+!/tsconfig.json
+!/vitest.config.ts
+
+# CI / GitHub Pages
+!/.github/
+
+# Player-facing files
+!/README.md
+!/Start The Tally.bat
+!/Start The Tally.command
+
+# Licence and notice files (apps/web/ART-NOTICE.md and apps/web/THIRD-PARTY-NOTICES.md are
+# already covered by !/apps/)
+!/LICENSE
+!/LICENSE.md
+!/THIRD-PARTY-NOTICES.md
+
+# Docs: only the developer guide and the card CSVs that generate
+# packages/game-core/data/cards.json (packages/game-core/scripts/generate-cards.js)
+!/docs/
+/docs/*
+!/docs/DEVELOPMENT.md
+!/docs/cards/
+/docs/cards/*
+!/docs/cards/creatures.csv
+!/docs/cards/spells.csv
+
+# Dependencies and build output
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/
+
+# Local embedded PostgreSQL data (pnpm db:start)
+.data/
+
+# Share packages (pnpm share)
+out/
+
+# Test artifacts
+test-results/
+playwright-report/
+
+# Environment and secrets (only .env.example is committed)
+.env
+.env.*
+!.env.example
+*.env
+.envrc
+.pgpass
+secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.~lock.*#
+~$*
+.vscode/*
+!.vscode/extensions.json
+
+# Local Claude Code settings
+.claude/settings.local.json

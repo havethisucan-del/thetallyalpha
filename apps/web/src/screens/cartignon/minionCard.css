@@ -1,0 +1,226 @@
+/*
+ * Illustrated minion card face (MinionCard.tsx), a faithful port of the user-approved prototype
+ * `docs/cards/card-prototype.mjs` (2026-10-22). All sizes are relative to the card width
+ * (`cqw`), so the face scales from table size (64 px) to the enlarged preview.
+ * Colours come from `--minion-bg / --minion-fig / --minion-box`, which point at the
+ * `--cartignon-color-*` tokens (and so follow a [data-palette] ancestor).
+ *
+ * Ink style (2026-10-22): every drawn line on the face uses the UI ink (`--line-color`, index.css):
+ * the card's outer edge and the ATK/LVL box outline at the one UI line weight (`--line-width`),
+ * the lettering outline and the modifier symbol outlines in the same ink at their approved,
+ * card-relative widths. The figure art (`*_Blacklines.svg`) is unchanged.
+ */
+
+.minion-card {
+  --mx: 0.06cqw;
+  --my: 0.05cqw;
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 279 / 394;
+  overflow: hidden;
+  container-type: inline-size;
+  background-color: var(--minion-bg);
+  font-family: 'Jaini', serif;
+  font-weight: 400;
+  line-height: 1;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Outer ink edge + dark-theme halo: `.card-edge` (cardFace.css). Texture: `.card-tex`. */
+
+.minion-box {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  top: 0;
+  width: 30.5%;
+  height: 18.7%;
+  background: var(--minion-box);
+}
+
+/* Figure anchored bottom-right, overshooting the bottom edge slightly. */
+.minion-fig,
+.minion-lines {
+  position: absolute;
+  z-index: 2;
+  right: -1.5%;
+  bottom: -1.2%;
+  max-width: none;
+}
+
+.minion-fig {
+  background: var(--minion-fig);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+.minion-lines {
+  pointer-events: none;
+}
+
+.minion-boxline {
+  position: absolute;
+  z-index: 2;
+  left: -2%;
+  top: -2%;
+  width: 32.5%;
+  height: 20.7%;
+  box-sizing: border-box;
+  border: var(--line-width) solid var(--line-color);
+  transform: translate(var(--mx), var(--my));
+}
+
+.minion-boxtext {
+  position: absolute;
+  z-index: 3;
+  left: 0;
+  top: 0;
+  width: 30.5%;
+  height: 18.7%;
+  padding-bottom: 0.6cqw;
+  box-sizing: border-box;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Black outline drawn behind the white text, offset slightly (intentional misregistration). */
+.minion-ink {
+  position: relative;
+  display: block;
+  isolation: isolate;
+}
+.minion-ink::before {
+  content: attr(data-t);
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  color: transparent;
+  -webkit-text-stroke: 1.6cqw var(--line-color);
+  transform: translate(var(--mx), var(--my));
+  pointer-events: none;
+}
+.minion-lvl.minion-ink::before {
+  -webkit-text-stroke-width: 1cqw;
+}
+
+.minion-atk {
+  font-size: 14cqw;
+}
+.minion-lvl {
+  font-size: 6.5cqw;
+  margin-top: 1.5cqw;
+}
+
+.minion-name {
+  position: absolute;
+  z-index: 3;
+  left: 33%;
+  right: 3%;
+  top: 3%;
+  color: #fff;
+  font-size: 12.5cqw;
+  white-space: nowrap;
+}
+
+.minion-mods {
+  position: absolute;
+  z-index: 3;
+  left: 3.5%;
+  top: 21.5%;
+  width: 11%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2.5cqw;
+}
+.minion-mod {
+  position: relative;
+  border-radius: 9999px;
+}
+.minion-mod svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.minion-sym-f {
+  fill: #fff;
+}
+.minion-sym-o {
+  fill: var(--line-color);
+  stroke: var(--line-color);
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+
+/* Modifier glow, in the style of the viewer's match tokens: amber edge + soft pulsing halo.
+   Blur radii have a px floor so the glow still reads on a 64 px card. */
+.minion-mod[data-glow='live'] svg {
+  filter: drop-shadow(0 0 max(1px, 0.7cqw) var(--cartignon-token-edge))
+    drop-shadow(0 0 max(2.5px, 2.5cqw) var(--cartignon-token-glow))
+    drop-shadow(0 0 max(2.5px, 2.5cqw) var(--cartignon-token-glow));
+  animation: minion-mod-glow 2.4s ease-in-out infinite;
+}
+.minion-mod[data-glow='silenced'] {
+  opacity: 0.45;
+}
+
+@keyframes minion-mod-glow {
+  50% {
+    filter: drop-shadow(0 0 max(1px, 0.7cqw) var(--cartignon-token-edge))
+      drop-shadow(0 0 max(2.5px, 2.5cqw) var(--cartignon-token-glow))
+      drop-shadow(0 0 max(5px, 6cqw) var(--cartignon-token-glow));
+  }
+}
+
+/*
+ * Not the Leading card (hand, covered stack cards, graveyard, choices; user 2026-10-22): the printed
+ * symbols are drawn HOLLOW - ink outline only, the card colour shows through - so the full-strength
+ * white symbols of the Leading card and its live glow are unmistakable. Shape and position still
+ * read at 64 px. A modifier that is live keeps its full look and glow wherever it is.
+ * Silenced (was live, then covered or negated) is hollow AND faded (45 %), so the two states stay
+ * distinguishable: hollow = "printed, not in effect here", faint hollow = "was in effect, now off".
+ */
+.minion-card[data-mods='inactive'] .minion-mod:not([data-glow='live']) .minion-sym-f {
+  fill: none;
+}
+.minion-card[data-mods='inactive'] .minion-mod:not([data-glow='live']) .minion-sym-o {
+  fill: none;
+  stroke-width: 3.5;
+}
+.minion-card[data-mods='inactive'] .minion-mod:not([data-glow='live']) .minion-mod-label {
+  opacity: 0.8;
+}
+
+/* Enlarged view only: a text label next to each symbol. */
+.minion-mod-label {
+  position: absolute;
+  left: calc(100% + 2cqw);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.6cqw 1.8cqw;
+  border-radius: 1.5cqw;
+  background: var(--line-color);
+  color: #fff;
+  font:
+    700 6.2cqw/1.2 system-ui,
+    sans-serif;
+  white-space: nowrap;
+}
+
+/* Reduced motion: the glow stays static (the preview: cardFace.css). */
+@media (prefers-reduced-motion: reduce) {
+  .minion-mod[data-glow='live'] svg {
+    animation: none;
+  }
+}

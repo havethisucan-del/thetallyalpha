@@ -1,0 +1,10 @@
+pnpm-lock.yaml
+dist/
+coverage/
+out/
+# Framework and docs are hand-formatted; Prettier only owns code and config.
+.claude/
+docs/
+*.md
+# Generated from docs/cards/*.csv (pnpm cards:generate); checked by a drift test.
+packages/game-core/data/cards.json

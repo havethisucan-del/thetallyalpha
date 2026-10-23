@@ -1,0 +1,56 @@
+/*
+ * ADR-0018 coach panel and highlight ring, on the manuscript tokens (index.css): a raised paper
+ * note with the ink line, a rubric margin bar and a gold rule under the heading. Light and dark
+ * follow the tokens; nothing here defines a colour of its own.
+ */
+
+/* The highlight ring: the turn accent, offset so the paper shows between it and the element (it
+   reads on any card colour). Only `outline` is touched: the element's own border, radius and
+   shadows stay as they are. */
+[data-tutorial-highlight] {
+  outline: 3px solid var(--ui-turn);
+  outline-offset: 2px;
+  animation: tutorial-ring 1.6s ease-in-out infinite;
+}
+
+@keyframes tutorial-ring {
+  0%,
+  100% {
+    outline-color: var(--ui-turn);
+  }
+  50% {
+    outline-color: var(--ui-turn-hover);
+  }
+}
+
+.tutorial-note {
+  border-left: 6px solid var(--ui-rubric);
+  box-shadow: 3px 4px 0 rgb(33 26 18 / 0.18);
+  animation: tutorial-note-in 180ms ease-out;
+}
+
+.tutorial-note-rule {
+  border-bottom: 3px double var(--ui-gold);
+}
+
+@keyframes tutorial-note-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--tutorial-note-from, -6px));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.tutorial-note[data-placement='bottom'] {
+  --tutorial-note-from: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-tutorial-highlight],
+  .tutorial-note {
+    animation: none;
+  }
+}

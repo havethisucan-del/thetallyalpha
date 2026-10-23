@@ -1,0 +1,16 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/game-core" },
+    { "path": "packages/game-core/test" },
+    { "path": "packages/ai" },
+    { "path": "packages/ai/test" },
+    { "path": "packages/ai/tools" },
+    { "path": "packages/protocol" },
+    { "path": "packages/protocol/test" },
+    { "path": "packages/database" },
+    { "path": "packages/database/test" },
+    { "path": "apps/server" },
+    { "path": "apps/server/test" }
+  ]
+}

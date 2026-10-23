@@ -1,0 +1,20 @@
+{
+  "name": "@cartignon/game-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./cards.json": "./data/cards.json"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "generate:cards": "tsc -b && node scripts/generate-cards.js"
+  },
+  "devDependencies": {
+    "@cartignon/protocol": "workspace:*"
+  }
+}

@@ -1,0 +1,16 @@
+packages:
+  - apps/*
+  - packages/*
+allowBuilds:
+  esbuild: true
+  # embedded-postgres binaries: the postinstall (scripts/hydrate-symlinks.js, identical in every
+  # platform package) only re-creates the shared-library symlinks listed in
+  # native/pg-symlinks.json. That list is empty on Windows and non-empty on Linux/macOS
+  # (14/17 entries, checked for 18.4.0-beta.17), where Postgres cannot load its libraries without it.
+  '@embedded-postgres/windows-x64': false
+  '@embedded-postgres/linux-x64': true
+  '@embedded-postgres/linux-arm64': true
+  '@embedded-postgres/darwin-arm64': true
+  '@embedded-postgres/darwin-x64': true
+  # Optional native accelerator for msgpackr (Colyseus SDK); msgpackr falls back to pure JS.
+  msgpackr-extract: false

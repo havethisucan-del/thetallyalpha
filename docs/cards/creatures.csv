@@ -1,0 +1,36 @@
+card_id,color,level,atk,modifiers
+C-A1,A,1,19,Nerf -30 / Buff +30 / Buff +30 / Link Up
+C-A2,A,2,33,Buff +30 / Draw Deck / Draw Grave
+C-A3,A,3,52,Buff +30 / Link Up
+C-A4,A,4,137,Draw Deck / Draw Grave
+C-A5,A,5,220,Buff +30
+C-B1,B,1,22,Draw Deck / Link Up / Draw Grave / Link Up
+C-B2,B,2,57,Buff +30 / Nerf -30 / Link Up
+C-B3,B,3,91,Buff +30 / Draw Deck
+C-B4,B,4,161,Draw Deck / Draw Deck
+C-B5,B,5,244,Draw Grave
+C-C1,C,1,27,Buff +30 / Draw Grave / Link Up / Draw Deck
+C-C2,C,2,76,Buff +30 / Link Up / Link Up
+C-C3,C,3,99,Draw Deck / Draw Grave
+C-C4,C,4,176,Draw Grave / Nerf -30
+C-C5,C,5,207,Nerf -30
+C-D1,D,1,32,Buff +30 / Draw Grave / Nerf -30 / Link Up
+C-D2,D,2,43,Nerf -30 / Draw Grave / Draw Deck
+C-D3,D,3,64,Buff +30 / Draw Deck
+C-D4,D,4,177,Draw Grave / Buff +30
+C-D5,D,5,233,Draw Grave
+C-E1,E,1,36,Draw Grave / Buff +30 / Nerf -30 / Buff +30
+C-E2,E,2,61,Draw Grave / Link Up / Draw Deck
+C-E3,E,3,71,Nerf -30 / Buff +30
+C-E4,E,4,152,Draw Deck / Draw Grave
+C-E5,E,5,267,Nerf -30
+C-F1,F,1,17,Buff +30 / Draw Grave / Nerf -30 / Draw Deck
+C-F2,F,2,57,Nerf -30 / Nerf -30 / Draw Deck
+C-F3,F,3,88,Draw Grave / Buff +30
+C-F4,F,4,180,Draw Grave / Nerf -30
+C-F5,F,5,213,Draw Grave
+C-G1,G,1,12,Draw Deck / Link Up / Draw Deck / Nerf -30
+C-G2,G,2,32,Draw Deck / Draw Deck / Buff +30
+C-G3,G,3,133,Nerf -30 / Draw Deck
+C-G4,G,4,142,Draw Deck / Buff +30
+C-G5,G,5,251,Draw Deck

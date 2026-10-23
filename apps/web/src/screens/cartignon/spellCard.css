@@ -1,0 +1,163 @@
+/*
+ * Spell card face (SpellCard.tsx) and card back (CardBack.tsx), ports of the user-approved
+ * prototype `docs/cards/spell-prototype.mjs` (2026-10-22). All sizes are relative to the card
+ * width (`cqw`). Both use the card's own two tones (light paper `#efe4cc`, ink `#1c1917`; the back
+ * inverts them) in both UI themes, like the minion colours; the outer edge is the UI ink line
+ * (`.card-edge`, cardFace.css) and the texture is the shared `.card-tex` layers.
+ */
+
+.spell-card,
+.card-back {
+  --paper: #efe4cc;
+  --ink: #1c1917;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  aspect-ratio: 279 / 394;
+  overflow: hidden;
+  container-type: inline-size;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Jaini', serif;
+  font-weight: 400;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* The banner: the supplied SVG is a black plate with cut-outs (drawn in the middle 170 of its 300
+   viewBox units); used as a mask so it takes the ink colour. Flush with the card's top edge. */
+.spell-banner {
+  flex: none;
+  width: 100%;
+  aspect-ratio: 900 / 170;
+  background: var(--ink);
+  -webkit-mask-size: 100% auto;
+  mask-size: 100% auto;
+  -webkit-mask-position: center 46%;
+  mask-position: center 46%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+/* Name: ink fill with a paper outline (stroke painted under the fill). */
+.spell-name {
+  position: relative;
+  z-index: 3;
+  flex: none;
+  text-align: center;
+  color: var(--ink);
+  -webkit-text-stroke: 1.6cqw var(--paper);
+  paint-order: stroke fill;
+}
+
+/* Enlarged card. */
+.spell-full .spell-name {
+  font-size: 11cqw;
+  line-height: 1;
+  margin: 2.5cqw 4cqw 2cqw;
+  text-wrap: balance;
+}
+
+.spell-body {
+  position: relative;
+  z-index: 3;
+  flex: 1;
+  min-height: 0;
+  margin: 0 6cqw 5cqw;
+  font-size: var(--spell-fs, var(--spell-body-fs));
+  line-height: 1.15;
+  display: flex;
+  flex-direction: column;
+  gap: 2cqw;
+  overflow: hidden;
+}
+.spell-body p {
+  margin: 0;
+}
+.spell-body b {
+  font-weight: 400;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  margin-right: 0.3em;
+}
+.spell-cond {
+  opacity: 0.85;
+}
+
+/* Verdict chip: symbol + words; solid frame = met, dashed = not met (never colour alone). */
+.spell-verdict {
+  display: flex;
+  align-items: center;
+  gap: 1.6cqw;
+  align-self: flex-start;
+  font-size: 5.2cqw;
+  line-height: 1;
+  padding: 1.2cqw 2cqw;
+  border: 0.5cqw solid var(--ink);
+  border-radius: 1cqw;
+}
+.spell-verdict-mark {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 5.6cqw;
+  height: 5.6cqw;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 4.4cqw;
+}
+.spell-card[data-verdict='unmet'] .spell-verdict {
+  border-style: dashed;
+}
+
+/* The effect that would fire stays full strength (with an ink bar); the other one fades. */
+.spell-card[data-verdict='met'] .spell-sec,
+.spell-card[data-verdict='unmet'] .spell-pri {
+  opacity: 0.4;
+}
+.spell-card[data-verdict='met'] .spell-pri,
+.spell-card[data-verdict='unmet'] .spell-sec {
+  box-shadow: -2cqw 0 0 -1.4cqw var(--ink);
+  padding-left: 1.6cqw;
+  margin-left: -1.6cqw;
+}
+
+/* Table size: banner + the name, one size for every spell, wrapped between words (balanced) and
+   centred in the space under the banner. */
+.spell-small .spell-name {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  /* Side margin + the name size (2026-10-23): --spell-name-small is SPELL_NAME_SMALL_CQW, already
+     90 % of the measured fit size (23.4 -> 21.06cqw). At 3cqw / 23.4cqw the widest lines
+     ("Mutual Withdrawal", "Mass Recall") left ~2px per side at 64px, under the 2px ink edge plus
+     the paper stroke, so the names touched the card edge. Now every line fits a 7cqw margin
+     (>= 4.5px per side at 64px), so wrapping keeps each line clear of the edge. */
+  margin: 0 7cqw 4cqw;
+  font-size: var(--spell-name-small);
+  line-height: 0.95;
+  text-wrap: balance;
+  overflow-wrap: normal;
+  -webkit-text-stroke-width: 2.4cqw;
+}
+
+/* Card back: BackFrame.mask.svg (preserveAspectRatio="none") stretched to an equal 4 % margin. */
+.card-back {
+  --paper: #1c1917;
+  --ink: #efe4cc;
+}
+.card-back-frame {
+  position: absolute;
+  inset: 4cqw;
+  background: var(--ink);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}

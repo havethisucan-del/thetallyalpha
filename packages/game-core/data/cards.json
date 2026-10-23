@@ -1,0 +1,678 @@
+{
+  "creatures": [
+    {
+      "defId": "C-A1",
+      "kind": "creature",
+      "color": "orange",
+      "level": 1,
+      "atk": 19,
+      "modifiers": [
+        "nerfEnemyLeader",
+        "buffSelf",
+        "buffSelf",
+        "linkUp"
+      ]
+    },
+    {
+      "defId": "C-A2",
+      "kind": "creature",
+      "color": "orange",
+      "level": 2,
+      "atk": 33,
+      "modifiers": [
+        "buffSelf",
+        "drawDeck",
+        "drawGrave"
+      ]
+    },
+    {
+      "defId": "C-A3",
+      "kind": "creature",
+      "color": "orange",
+      "level": 3,
+      "atk": 52,
+      "modifiers": [
+        "buffSelf",
+        "linkUp"
+      ]
+    },
+    {
+      "defId": "C-A4",
+      "kind": "creature",
+      "color": "orange",
+      "level": 4,
+      "atk": 137,
+      "modifiers": [
+        "drawDeck",
+        "drawGrave"
+      ]
+    },
+    {
+      "defId": "C-A5",
+      "kind": "creature",
+      "color": "orange",
+      "level": 5,
+      "atk": 220,
+      "modifiers": [
+        "buffSelf"
+      ]
+    },
+    {
+      "defId": "C-B1",
+      "kind": "creature",
+      "color": "yellow",
+      "level": 1,
+      "atk": 22,
+      "modifiers": [
+        "drawDeck",
+        "linkUp",
+        "drawGrave",
+        "linkUp"
+      ]
+    },
+    {
+      "defId": "C-B2",
+      "kind": "creature",
+      "color": "yellow",
+      "level": 2,
+      "atk": 57,
+      "modifiers": [
+        "buffSelf",
+        "nerfEnemyLeader",
+        "linkUp"
+      ]
+    },
+    {
+      "defId": "C-B3",
+      "kind": "creature",
+      "color": "yellow",
+      "level": 3,
+      "atk": 91,
+      "modifiers": [
+        "buffSelf",
+        "drawDeck"
+      ]
+    },
+    {
+      "defId": "C-B4",
+      "kind": "creature",
+      "color": "yellow",
+      "level": 4,
+      "atk": 161,
+      "modifiers": [
+        "drawDeck",
+        "drawDeck"
+      ]
+    },
+    {
+      "defId": "C-B5",
+      "kind": "creature",
+      "color": "yellow",
+      "level": 5,
+      "atk": 244,
+      "modifiers": [
+        "drawGrave"
+      ]
+    },
+    {
+      "defId": "C-C1",
+      "kind": "creature",
+      "color": "green",
+      "level": 1,
+      "atk": 27,
+      "modifiers": [
+        "buffSelf",
+        "drawGrave",
+        "linkUp",
+        "drawDeck"
+      ]
+    },
+    {
+      "defId": "C-C2",
+      "kind": "creature",
+      "color": "green",
+      "level": 2,
+      "atk": 76,
+      "modifiers": [
+        "buffSelf",
+        "linkUp",
+        "linkUp"
+      ]
+    },
+    {
+      "defId": "C-C3",
+      "kind": "creature",
+      "color": "green",
+      "level": 3,
+      "atk": 99,
+      "modifiers": [
+        "drawDeck",
+        "drawGrave"
+      ]
+    },
+    {
+      "defId": "C-C4",
+      "kind": "creature",
+      "color": "green",
+      "level": 4,
+      "atk": 176,
+      "modifiers": [
+        "drawGrave",
+        "nerfEnemyLeader"
+      ]
+    },
+    {
+      "defId": "C-C5",
+      "kind": "creature",
+      "color": "green",
+      "level": 5,
+      "atk": 207,
+      "modifiers": [
+        "nerfEnemyLeader"
+      ]
+    },
+    {
+      "defId": "C-D1",
+      "kind": "creature",
+      "color": "blue",
+      "level": 1,
+      "atk": 32,
+      "modifiers": [
+        "buffSelf",
+        "drawGrave",
+        "nerfEnemyLeader",
+        "linkUp"
+      ]
+    },
+    {
+      "defId": "C-D2",
+      "kind": "creature",
+      "color": "blue",
+      "level": 2,
+      "atk": 43,
+      "modifiers": [
+        "nerfEnemyLeader",
+        "drawGrave",
+        "drawDeck"
+      ]
+    },
+    {
+      "defId": "C-D3",
+      "kind": "creature",
+      "color": "blue",
+      "level": 3,
+      "atk": 64,
+      "modifiers": [
+        "buffSelf",
+        "drawDeck"
+      ]
+    },
+    {
+      "defId": "C-D4",
+      "kind": "creature",
+      "color": "blue",
+      "level": 4,
+      "atk": 177,
+      "modifiers": [
+        "drawGrave",
+        "buffSelf"
+      ]
+    },
+    {
+      "defId": "C-D5",
+      "kind": "creature",
+      "color": "blue",
+      "level": 5,
+      "atk": 233,
+      "modifiers": [
+        "drawGrave"
+      ]
+    },
+    {
+      "defId": "C-E1",
+      "kind": "creature",
+      "color": "indigo",
+      "level": 1,
+      "atk": 36,
+      "modifiers": [
+        "drawGrave",
+        "buffSelf",
+        "nerfEnemyLeader",
+        "buffSelf"
+      ]
+    },
+    {
+      "defId": "C-E2",
+      "kind": "creature",
+      "color": "indigo",
+      "level": 2,
+      "atk": 61,
+      "modifiers": [
+        "drawGrave",
+        "linkUp",
+        "drawDeck"
+      ]
+    },
+    {
+      "defId": "C-E3",
+      "kind": "creature",
+      "color": "indigo",
+      "level": 3,
+      "atk": 71,
+      "modifiers": [
+        "nerfEnemyLeader",
+        "buffSelf"
+      ]
+    },
+    {
+      "defId": "C-E4",
+      "kind": "creature",
+      "color": "indigo",
+      "level": 4,
+      "atk": 152,
+      "modifiers": [
+        "drawDeck",
+        "drawGrave"
+      ]
+    },
+    {
+      "defId": "C-E5",
+      "kind": "creature",
+      "color": "indigo",
+      "level": 5,
+      "atk": 267,
+      "modifiers": [
+        "nerfEnemyLeader"
+      ]
+    },
+    {
+      "defId": "C-F1",
+      "kind": "creature",
+      "color": "violet",
+      "level": 1,
+      "atk": 17,
+      "modifiers": [
+        "buffSelf",
+        "drawGrave",
+        "nerfEnemyLeader",
+        "drawDeck"
+      ]
+    },
+    {
+      "defId": "C-F2",
+      "kind": "creature",
+      "color": "violet",
+      "level": 2,
+      "atk": 57,
+      "modifiers": [
+        "nerfEnemyLeader",
+        "nerfEnemyLeader",
+        "drawDeck"
+      ]
+    },
+    {
+      "defId": "C-F3",
+      "kind": "creature",
+      "color": "violet",
+      "level": 3,
+      "atk": 88,
+      "modifiers": [
+        "drawGrave",
+        "buffSelf"
+      ]
+    },
+    {
+      "defId": "C-F4",
+      "kind": "creature",
+      "color": "violet",
+      "level": 4,
+      "atk": 180,
+      "modifiers": [
+        "drawGrave",
+        "nerfEnemyLeader"
+      ]
+    },
+    {
+      "defId": "C-F5",
+      "kind": "creature",
+      "color": "violet",
+      "level": 5,
+      "atk": 213,
+      "modifiers": [
+        "drawGrave"
+      ]
+    },
+    {
+      "defId": "C-G1",
+      "kind": "creature",
+      "color": "red",
+      "level": 1,
+      "atk": 12,
+      "modifiers": [
+        "drawDeck",
+        "linkUp",
+        "drawDeck",
+        "nerfEnemyLeader"
+      ]
+    },
+    {
+      "defId": "C-G2",
+      "kind": "creature",
+      "color": "red",
+      "level": 2,
+      "atk": 32,
+      "modifiers": [
+        "drawDeck",
+        "drawDeck",
+        "buffSelf"
+      ]
+    },
+    {
+      "defId": "C-G3",
+      "kind": "creature",
+      "color": "red",
+      "level": 3,
+      "atk": 133,
+      "modifiers": [
+        "nerfEnemyLeader",
+        "drawDeck"
+      ]
+    },
+    {
+      "defId": "C-G4",
+      "kind": "creature",
+      "color": "red",
+      "level": 4,
+      "atk": 142,
+      "modifiers": [
+        "drawDeck",
+        "buffSelf"
+      ]
+    },
+    {
+      "defId": "C-G5",
+      "kind": "creature",
+      "color": "red",
+      "level": 5,
+      "atk": 251,
+      "modifiers": [
+        "drawDeck"
+      ]
+    }
+  ],
+  "spells": [
+    {
+      "defId": "S-01",
+      "kind": "spell",
+      "name": "Foresight",
+      "text": {
+        "condition": "There is a Level 3 creature on the field (either side).",
+        "primary": "Draw 2 cards from the deck and look at them. Keep 1 and put the other back into the deck, then shuffle the deck. Your opponent does not see the drawn cards.",
+        "secondary": "Your opponent's Leading creature gets -30 ATK until the end of the round."
+      },
+      "secondary": {
+        "kind": "nerfEnemyLeader",
+        "amount": 30
+      }
+    },
+    {
+      "defId": "S-02",
+      "kind": "spell",
+      "name": "Grave Bargain",
+      "text": {
+        "condition": "Your opponent has more cards in hand than you (this spell is not counted).",
+        "primary": "If your opponent has 2 or more cards more than you, draw 2 cards from the graveyard; if they have exactly 1 more, draw 1. Then your opponent draws 1 card from the deck.",
+        "secondary": "Your Leading creature gets +30 ATK until the end of the round."
+      },
+      "secondary": {
+        "kind": "buffOwnLeader",
+        "amount": 30
+      }
+    },
+    {
+      "defId": "S-03",
+      "kind": "spell",
+      "name": "Mirror Swap",
+      "text": {
+        "condition": "Both players have the same number of creatures on the field, at least 3 each.",
+        "primary": "Swap the two stacks: you take your opponent's stack and they take yours. Positions, buffs and nerfs stay with the creatures, and no modifier activates. Then your new Leading creature gets -100 ATK.",
+        "secondary": "Draw 1 random card from the graveyard."
+      },
+      "secondary": {
+        "kind": "draw",
+        "from": "graveyard",
+        "count": 1
+      }
+    },
+    {
+      "defId": "S-04",
+      "kind": "spell",
+      "name": "Mass Recall",
+      "text": {
+        "condition": "There are exactly 3 creatures on the field in total (both sides together).",
+        "primary": "Return all 3 creatures to their owners' hands. Your turn ends.",
+        "secondary": "Draw 1 card from the deck."
+      },
+      "secondary": {
+        "kind": "draw",
+        "from": "deck",
+        "count": 1
+      }
+    },
+    {
+      "defId": "S-05",
+      "kind": "spell",
+      "name": "Wild Link",
+      "text": {
+        "condition": "Your opponent has a Level 5 creature on the field and you have a creature in hand.",
+        "primary": "Choose a creature from your hand and link it onto your Leading creature, ignoring the Level requirement. If you have no creature on the field, it becomes your Base instead. It counts as a normal placement: its modifier activates and it uses up an active Link Up.",
+        "secondary": "Your Leading creature gets +30 ATK until the end of the round."
+      },
+      "secondary": {
+        "kind": "buffOwnLeader",
+        "amount": 30
+      }
+    },
+    {
+      "defId": "S-06",
+      "kind": "spell",
+      "name": "Mimic",
+      "text": {
+        "condition": "Your opponent's Leading creature has an active modifier and you have a Leading creature.",
+        "primary": "Copy that modifier and fire it at once on your Leading creature. A copied draw makes you draw 1 card from that source; a copied Link Up gives your Leading creature an active Link Up.",
+        "secondary": "Your opponent's Leading creature gets -30 ATK until the end of the round."
+      },
+      "secondary": {
+        "kind": "nerfEnemyLeader",
+        "amount": 30
+      }
+    },
+    {
+      "defId": "S-07",
+      "kind": "spell",
+      "name": "Changing of the Guard",
+      "text": {
+        "condition": "You have a Leading creature and at least 1 creature in hand.",
+        "primary": "Shuffle your Leading creature into the deck and put a creature of your choice from your hand in its place. The new creature becomes your Leading creature and its modifier activates; the creature below it does not activate. Your turn ends.",
+        "secondary": "Draw 1 random card from the graveyard."
+      },
+      "secondary": {
+        "kind": "draw",
+        "from": "graveyard",
+        "count": 1
+      }
+    },
+    {
+      "defId": "S-08",
+      "kind": "spell",
+      "name": "Topple",
+      "text": {
+        "condition": "Your opponent has 4 or more creatures on the field.",
+        "primary": "Send your opponent's Leading creature (the top card of their stack) to the graveyard. The creature below it becomes Leading again and its modifier activates again.",
+        "secondary": "Draw 1 card from the deck."
+      },
+      "secondary": {
+        "kind": "draw",
+        "from": "deck",
+        "count": 1
+      }
+    },
+    {
+      "defId": "S-09",
+      "kind": "spell",
+      "name": "Tactical Retreat",
+      "text": {
+        "condition": "You have a Leading creature and a creature of lower Level in hand.",
+        "primary": "Return your Leading creature to your hand and put a lower-Level creature of your choice from your hand in its place. The new creature becomes your Leading creature and its modifier activates; the creature below it does not activate. The returned creature cannot be played again this turn.",
+        "secondary": "Your Leading creature gets +30 ATK until the end of the round."
+      },
+      "secondary": {
+        "kind": "buffOwnLeader",
+        "amount": 30
+      }
+    },
+    {
+      "defId": "S-10",
+      "kind": "spell",
+      "name": "Kindred Link",
+      "text": {
+        "condition": "You have a creature in hand with the same Level as your Leading creature.",
+        "primary": "Link a creature of that Level from your hand onto your Leading creature (you choose if you have several). It counts as a normal placement: its modifier activates and it uses up an active Link Up.",
+        "secondary": "Your opponent's Leading creature gets -30 ATK until the end of the round."
+      },
+      "secondary": {
+        "kind": "nerfEnemyLeader",
+        "amount": 30
+      }
+    },
+    {
+      "defId": "S-11",
+      "kind": "spell",
+      "name": "Repel",
+      "text": {
+        "condition": "Your opponent has a Level 1, 2 or 3 creature on the field (their Base counts).",
+        "primary": "Choose an enemy Level 1-3 creature and return it to its owner's hand. The cards above it shift down one position; if it was the Base, the next card becomes the new Base. Your turn ends.",
+        "secondary": "Draw 1 random card from the graveyard."
+      },
+      "secondary": {
+        "kind": "draw",
+        "from": "graveyard",
+        "count": 1
+      }
+    },
+    {
+      "defId": "S-12",
+      "kind": "spell",
+      "name": "Null Snare",
+      "text": {
+        "condition": "Trap: can always be played. It stays armed, visible to your opponent, until the end of their next turn.",
+        "primary": "Triggers on the first creature your opponent places during that turn. Level 2, 3 or 4: that creature's modifier does not activate this time (it can still activate later). Level 1 or 5: the Secondary effect happens instead. If the trap is not triggered by the end of that turn, it expires and the Secondary effect happens.",
+        "secondary": "Draw 1 card from the deck."
+      },
+      "secondary": {
+        "kind": "draw",
+        "from": "deck",
+        "count": 1
+      }
+    },
+    {
+      "defId": "S-13",
+      "kind": "spell",
+      "name": "Defection",
+      "text": {
+        "condition": "Your opponent has a Level 1-4 creature on the field and you have at least 1 other card in hand.",
+        "primary": "Choose an enemy Level 1-4 creature: it becomes yours permanently. Link it onto your stack as your new Leading creature, or make it your Base if you have no creature on the field. Then discard 1 card of your choice from your hand to the graveyard.",
+        "secondary": "Your Leading creature gets +30 ATK until the end of the round."
+      },
+      "secondary": {
+        "kind": "buffOwnLeader",
+        "amount": 30
+      }
+    },
+    {
+      "defId": "S-14",
+      "kind": "spell",
+      "name": "Undermine",
+      "text": {
+        "condition": "Your opponent has 2 or more creatures in their stack.",
+        "primary": "Send your opponent's first linked creature (position 1, directly above their Base) to the graveyard. The cards above it shift down one position, and their Leading creature's modifier for its new position activates.",
+        "secondary": "Your opponent's Leading creature gets -30 ATK until the end of the round."
+      },
+      "secondary": {
+        "kind": "nerfEnemyLeader",
+        "amount": 30
+      }
+    },
+    {
+      "defId": "S-15",
+      "kind": "spell",
+      "name": "Underdog's Stand",
+      "text": {
+        "condition": "Your opponent's total stack ATK is at least 125 higher than yours.",
+        "primary": "Your opponent's whole stack gets -50 ATK until the end of the round, no matter which creature is Leading.",
+        "secondary": "Your Leading creature gets +30 ATK until the end of the round."
+      },
+      "secondary": {
+        "kind": "buffOwnLeader",
+        "amount": 30
+      }
+    },
+    {
+      "defId": "S-16",
+      "kind": "spell",
+      "name": "Recoil Snare",
+      "text": {
+        "condition": "Trap: can always be played. It stays armed, visible to your opponent, until the end of their next turn.",
+        "primary": "Triggers the first time your opponent places a Level 3 or higher creature during that turn (played or linked). Return that creature to its owner's hand; it cannot be played again this turn. If the trap is not triggered by the end of that turn, it expires and the Secondary effect happens.",
+        "secondary": "Your opponent's Leading creature gets -30 ATK until the end of the round."
+      },
+      "secondary": {
+        "kind": "nerfEnemyLeader",
+        "amount": 30
+      }
+    },
+    {
+      "defId": "S-17",
+      "kind": "spell",
+      "name": "Hostile Takeover",
+      "text": {
+        "condition": "You have at least 2 more cards in hand than your opponent (this spell is not counted) and your opponent has a creature on the field.",
+        "primary": "Choose cards from your hand equal to the difference and shuffle them into the deck, so both hands are equal. Then choose an enemy creature: it becomes yours permanently. Link it onto your stack as your new Leading creature, or make it your Base if you have no creature on the field.",
+        "secondary": "Draw 1 card from the deck."
+      },
+      "secondary": {
+        "kind": "draw",
+        "from": "deck",
+        "count": 1
+      }
+    },
+    {
+      "defId": "S-18",
+      "kind": "spell",
+      "name": "Mutual Withdrawal",
+      "text": {
+        "condition": "Your opponent has at least 2 more creatures on the field than you, and you have at least 1.",
+        "primary": "Choose 1 enemy creature and 1 of your own creatures and return both to their owners' hands. Your turn ends.",
+        "secondary": "Draw 1 random card from the graveyard."
+      },
+      "secondary": {
+        "kind": "draw",
+        "from": "graveyard",
+        "count": 1
+      }
+    },
+    {
+      "defId": "S-19",
+      "kind": "spell",
+      "name": "Gambit Prism",
+      "text": {
+        "condition": "None: can always be played.",
+        "primary": "Draw 1 random card from the graveyard. Creature: link it onto your Leading creature for free, ignoring Level and colour (if you have no creature on the field, it becomes your Base). Spell: your opponent plays it at once, for free, as its caster. Its condition is ignored, as much of its effect as possible happens, a turn-ending effect ends the current turn, and a trap is armed on their side.",
+        "secondary": "None."
+      },
+      "secondary": {
+        "kind": "none"
+      }
+    }
+  ]
+}

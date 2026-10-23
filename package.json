@@ -1,0 +1,43 @@
+{
+  "name": "project-cartignon",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.14.0",
+  "engines": {
+    "node": ">=24.11.0"
+  },
+  "scripts": {
+    "build": "pnpm -r --workspace-concurrency=1 run build",
+    "typecheck": "tsc -b && pnpm --filter @cartignon/web typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "tsc -b && vitest run --project unit",
+    "test:e2e": "tsc -b && tsc -p tests/e2e && playwright test",
+    "test:e2e:static": "tsc -b && tsc -p tests/e2e-static && playwright test -c tests/e2e-static/playwright.config.ts",
+    "test:integration": "tsc -b && node --env-file-if-exists=.env node_modules/vitest/vitest.mjs run --project integration",
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check && vitest run --project unit",
+    "dev": "node --env-file-if-exists=.env scripts/dev.js",
+    "dev:lan": "node --env-file-if-exists=.env scripts/dev.js --lan",
+    "share": "node scripts/share.js",
+    "dev:app": "pnpm -r --parallel --filter @cartignon/server --filter @cartignon/web run dev",
+    "ai:tournament": "tsc -b packages/ai && node packages/ai/tools/tournament.ts",
+    "cards:generate": "pnpm --filter @cartignon/game-core generate:cards",
+    "db:start": "pnpm --filter @cartignon/database db:start",
+    "db:stop": "pnpm --filter @cartignon/database db:stop",
+    "db:migrate": "pnpm --filter @cartignon/database db:migrate",
+    "db:generate": "pnpm --filter @cartignon/database db:generate"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.64.1",
+    "@types/node": "24.19.2",
+    "eslint": "10.13.0",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "17.13.0",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.2",
+    "vitest": "5.0.5"
+  }
+}
