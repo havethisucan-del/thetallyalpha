@@ -188,6 +188,31 @@ describe('CartignonTable', () => {
     expect(html).not.toContain('data-testid="action-rejection"');
   });
 
+  it('announces a final round prominently and marks it by the round counter (A1)', () => {
+    const base = tableModel();
+    const render = (finalRound: boolean, stack = base.me.stack.slice(0, 0)) =>
+      renderToStaticMarkup(
+        createElement(CartignonTable, {
+          model: {
+            ...base,
+            center: { ...base.center, finalRound, replays: 0 },
+            me: { ...base.me, stack },
+          },
+          canAct: true,
+          onCommand: noop,
+        }),
+      );
+    const html = render(true);
+    expect(html).toContain('data-testid="final-round-notice"');
+    expect(html).toContain('The match ends after this round. More tokens wins.');
+    expect(html).toMatch(/data-testid="final-round-marker"[^>]*>Final round</);
+    expect(html).toContain('data-testid="final-round-dismiss"');
+    // Not a final round: neither notice nor marker (the live region stays mounted).
+    const normal = render(false);
+    expect(normal).not.toContain('final-round-notice');
+    expect(normal).not.toContain('final-round-marker');
+  });
+
   it('renders hand cards as toggle buttons', () => {
     const html = renderToStaticMarkup(
       createElement(CartignonTable, { model: tableModel(), canAct: true, onCommand: noop }),
@@ -215,7 +240,7 @@ describe('CartignonTable', () => {
     expect(html).toContain('aria-label="Spell Gambit. Cast now: primary effect."');
   });
 
-  it('dims a spell that cannot be cast and gives the reason', () => {
+  it('keeps the branch badge plain when a spell is merely not castable now (A5)', () => {
     const model = tableModel({
       priv: {
         spellHints: [
@@ -228,6 +253,25 @@ describe('CartignonTable', () => {
     );
     expect(html).toContain('data-castable="false"');
     expect(html).toContain('Not castable now: It is not your turn.');
+    expect(html).not.toContain('line-through');
+    expect(html).not.toContain('data-no-effect');
+    expect(html).toMatch(/data-testid="spell-hint"[^>]*>Secondary</);
+  });
+
+  it('labels the band of a spell with no effect "No effect" (RD-175)', () => {
+    const model = tableModel({
+      priv: {
+        spellHints: [
+          { cardId: 'c02', branch: 'secondary', castable: false, reason: 'SPELL_NO_EFFECT' },
+        ],
+      },
+    });
+    const html = renderToStaticMarkup(
+      createElement(CartignonTable, { model, canAct: true, onCommand: noop }),
+    );
+    expect(html).not.toContain('line-through');
+    expect(html).toContain('data-no-effect="true"');
+    expect(html).toMatch(/data-testid="spell-hint"[^>]*>No effect</);
   });
 
   it('puts the event log behind a corner icon, closed, with the toast and live region', () => {

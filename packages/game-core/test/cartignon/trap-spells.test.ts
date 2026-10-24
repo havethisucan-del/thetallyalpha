@@ -802,7 +802,7 @@ describe('lapse paths (RD-129, RD-156: lapse first, then decide)', () => {
         seat: 1,
         atk: [40, 30],
       });
-      expect(resolveRound(ctx, state, rng())).toMatchObject({
+      expect(resolveRound(ctx, state, rng(), 1)).toMatchObject({
         ok: true,
         outcome: { kind: 'win', winner: 0, decidedBy: 'opponentAhead', atk: [40, 30] },
       });
@@ -829,7 +829,7 @@ describe('lapse at an earlier round end (RD-129) and the match guards', () => {
     });
     expect(events.at(-1)).toMatchObject({ type: 'roundOver', atk: [30, 0] });
     expect(state.board.armedTraps).toBeUndefined();
-    expect(resolveRound(ctx, state, rng())).toMatchObject({ ok: true });
+    expect(resolveRound(ctx, state, rng(), 1)).toMatchObject({ ok: true });
   });
 
   it('an End Turn whose own-trap lapse flips the outcome (ahead / equal, RD-156)', () => {
@@ -893,7 +893,7 @@ describe('lapse at an earlier round end (RD-129) and the match guards', () => {
       atk: [60, 30],
     });
     expect(state.board.armedTraps).toBeUndefined();
-    expect(resolveRound(ctx, state, rng())).toMatchObject({
+    expect(resolveRound(ctx, state, rng(), 1)).toMatchObject({
       ok: true,
       outcome: { kind: 'win', winner: 0, atk: [60, 30] },
     });
@@ -924,7 +924,7 @@ describe('lapse at an earlier round end (RD-129) and the match guards', () => {
     expect(state.board.zones.hands[1]).toEqual([R4]);
     expect(state.board.armedTraps).toBeUndefined();
     expect(state.board.zones.graveyard).toEqual(expect.arrayContaining([S12, S16]));
-    expect(resolveRound(ctx, state, rng())).toMatchObject({ ok: true });
+    expect(resolveRound(ctx, state, rng(), 1)).toMatchObject({ ok: true });
   });
 
   it('the match layer resolves and cleans up the round with every card conserved', () => {
@@ -943,7 +943,7 @@ describe('lapse at an earlier round end (RD-129) and the match guards', () => {
       ...s,
       phase: { kind: 'roundOver', reason: 'opponentAhead', seat: 1, atk: [30, 10] },
     });
-    expect(() => resolveRound(ctx, over, rng())).toThrow(/armed traps/);
+    expect(() => resolveRound(ctx, over, rng(), 1)).toThrow(/armed traps/);
     const outcome = {
       kind: 'draw',
       reason: 'p1NoBase',

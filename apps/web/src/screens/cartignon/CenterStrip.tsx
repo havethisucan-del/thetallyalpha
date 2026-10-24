@@ -27,7 +27,7 @@ export function CenterStrip({ center }: { center: TableCenter }) {
       {center.roundOver ? (
         <p
           role="status"
-          className="ct-round-over rounded-md border-l-4 border-warn bg-paper-raised px-2 py-1 text-base leading-snug text-ink shadow-md"
+          className="ct-round-over ink-line rounded-md border-l-4 border-l-warn bg-paper-raised px-2.5 py-1.5 text-base leading-snug text-ink shadow-md"
           data-testid="round-over"
         >
           {roundOverText(center.roundOver)}

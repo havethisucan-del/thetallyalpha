@@ -167,7 +167,7 @@ function finish(match: CartignonMatchState, seed = 1) {
 
 function resolve(round: RoundState, seed = 1) {
   const before = JSON.stringify(round);
-  const r = resolveRound(ctx, round, rng(seed));
+  const r = resolveRound(ctx, round, rng(seed), 1);
   if (!r.ok) throw new Error(`unexpected rejection ${r.code}`);
   expect(JSON.stringify(round)).toBe(before);
   return r;
@@ -188,7 +188,7 @@ function types(events: readonly MatchEvent[]): string[] {
 describe('resolveRound: ATK comparison (RD-17, RD-18, RD-67, RD-68, RD-69)', () => {
   it('rejects a round that is not over', () => {
     const state = startRound(boardOf({ hands: [[cr('red', 1)], []] }), 0).state;
-    expect(resolveRound(ctx, state, rng())).toMatchObject({ ok: false, code: 'ROUND_NOT_OVER' });
+    expect(resolveRound(ctx, state, rng(), 1)).toMatchObject({ ok: false, code: 'ROUND_NOT_OVER' });
   });
 
   it('opponentAhead: the ending seat was behind, its opponent wins (RD-169, RD-69)', () => {
@@ -209,7 +209,7 @@ describe('resolveRound: ATK comparison (RD-17, RD-18, RD-67, RD-68, RD-69)', () 
       stacks: [[cr('yellow', 3)], [cr('blue', 1)]],
       reason: 'equalStall',
     });
-    expect(() => resolveRound(ctx, forged, rng())).toThrow(/equalStall/);
+    expect(() => resolveRound(ctx, forged, rng(), 1)).toThrow(/equalStall/);
   });
 
   it('an End Turn in the P1 Base step is a draw without comparison (RD-67)', () => {

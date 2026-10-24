@@ -48,52 +48,52 @@
   --tutorial-note-from: 6px;
 }
 
-/* Card steps (revision 2026-10-23): the hand card is enlarged in place, lifted out of the fan
-   (its slot rises above the other cards and turns upright), and one part of its face is ringed.
-   Only the card-face classes (minionCard.css) and the hand slot (table.css) are relied on; the
-   face is sized in cqw, so it scales as one piece. */
-/* The hand is its own stacking context (table.css): raise it over the turn banner, token
-   corners and stacks while a card is zoomed; popovers / the log corner (45) and the coach note
-   (z-50) stay above. */
+/* Card steps (revision 2026-10-25): the hand card moves to the middle of the table, enlarged, and
+   one part of its face is ringed; the rest of the table dims. TutorialOverlay measures the slot
+   and sets --tz-x / --tz-y (offset of the slot's 50% 60% origin) and --tz-s (scale) on it, from
+   the viewport only, so a minion and a spell end up the same size (~250px wide on desktop, about
+   64% of the width on a phone; a zoomed spell shows its full text, SpellCard). Only the card-face
+   classes (minionCard.css) and the hand slot (table.css) are relied on; the face is sized in cqw,
+   so it scales as one piece. */
+/* The hand is its own stacking context (table.css): raise it over the dimmed table, the turn
+   banner, token corners and stacks while a card is zoomed; popovers / the log corner (45) and the
+   coach note (z-50) stay above. */
 .ct-hand:has([data-tutorial-zoom]) {
   z-index: 44;
 }
 .ct-hand .ct-hand-card:has([data-tutorial-zoom]) {
   z-index: 40;
 }
-/* One class more than table.css's hover / selected lift rules, so the zoom wins over them. */
+/* One class more than table.css's hover / selected lift rules, so the zoom wins over them. The
+   leading rotate cancels the slot's fan rotation (same origin), so the card stands upright. */
 .ct-hand .ct-hand-card:has([data-tutorial-zoom]) .ct-hand-lift {
   transform: rotate(calc(-1 * var(--ht, 0) * var(--fan, 0deg)))
-    translateY(calc(-1 * var(--tutorial-zoom-rise))) scale(var(--tutorial-zoom-scale));
-  transform-origin: 50% 100%;
+    translate(var(--tz-x, 0px), var(--tz-y, 0px)) scale(var(--tz-s, 1));
+  transform-origin: 50% 60%;
+  transition: transform 260ms ease-out;
 }
-.ct-hand {
-  --tutorial-zoom-scale: 2.6;
-  --tutorial-zoom-rise: 12px;
+/* The dim: over everything on the table except the hand (z 44), whose other cards dim too. */
+.ct-field:has([data-tutorial-zoom])::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 43;
+  background: rgb(15 12 8 / 0.5);
+  pointer-events: none;
+  animation: tutorial-dim-in 200ms ease-out;
 }
-@media (max-width: 639px) {
-  .ct-hand {
-    --tutorial-zoom-scale: 2.1;
+.ct-hand:has([data-tutorial-zoom]) .ct-hand-card:not(:has([data-tutorial-zoom])) {
+  filter: brightness(0.5);
+}
+.ct-hand:has([data-tutorial-zoom])::before {
+  opacity: 0;
+}
+@keyframes tutorial-dim-in {
+  from {
+    opacity: 0;
   }
-}
-/* A zoomed spell shows its full text (SpellCard): larger, so the body reads at about the size of
-   the hover preview (SPELL_PREVIEW_WIDTH 240px): ~245px wide on desktop, ~215px on a phone. */
-.ct-hand
-  .ct-hand-card:has(
-    [data-tutorial-zoom='condition'],
-    [data-tutorial-zoom='primary'],
-    [data-tutorial-zoom='secondary']
-  ) {
-  --tutorial-zoom-scale: 3.1;
-}
-@media (max-width: 639px) {
-  .ct-hand
-    .ct-hand-card:has(
-      [data-tutorial-zoom='condition'],
-      [data-tutorial-zoom='primary'],
-      [data-tutorial-zoom='secondary']
-    ) {
-    --tutorial-zoom-scale: 3.6;
+  to {
+    opacity: 1;
   }
 }
 /* The hand card is a button (centred text): the body reads left-aligned like the preview, and the
@@ -139,6 +139,7 @@
 @media (prefers-reduced-motion: reduce) {
   [data-tutorial-highlight],
   .tutorial-note,
+  .ct-field:has([data-tutorial-zoom])::after,
   [data-tutorial-zoom] * {
     animation: none;
   }

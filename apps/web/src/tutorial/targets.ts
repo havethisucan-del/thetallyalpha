@@ -23,6 +23,9 @@ export const TARGET_SELECTORS: Readonly<Record<Exclude<TargetId, `card:${string}
   'turn-banner': '[data-testid="turn-banner"]',
   // The two piles sit at opposite ends of the middle line: highlight each pile itself.
   piles: '[data-testid="pile-graveyard"], [data-testid="pile-deck"]',
+  // The final-round notice at round start and the compact marker by the round counter.
+  'final-round': '[data-testid="final-round-notice"], [data-testid="final-round-marker"]',
+  'match-summary': '[data-testid="match-summary"]',
 };
 
 const CARD_PREFIX = 'card:';

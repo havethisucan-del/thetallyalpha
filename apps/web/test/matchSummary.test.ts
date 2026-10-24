@@ -28,9 +28,15 @@ function entry(revision: number, index: number, event: CartignonSeatEvent): Even
   return { key: `${revision}:${index}`, revision, event };
 }
 
-function resolvedWin(revision: number, winner: 0 | 1, atk: [number, number]): EventLogEntry {
+function resolvedWin(
+  revision: number,
+  winner: 0 | 1,
+  atk: [number, number],
+  round = 1,
+): EventLogEntry {
   return entry(revision, 0, {
     type: 'roundResolved',
+    round,
     outcome: { kind: 'win', winner, decidedBy: 'opponentAhead', atk, tieBreakIterations: 0 },
   });
 }
@@ -69,16 +75,21 @@ function matchState(overrides: Partial<MatchState> = {}): MatchState {
 
 const WIN_SEAT_0: Outcome = { result: 'winner', winner: 0, reason: 'finalRoundPlayed' };
 
-const ROUNDS: EventLogEntry[] = [
-  resolvedWin(10, 0, [9, 7]),
-  token(10, 0, 'orange'),
-  resolvedWin(20, 1, [4, 8]),
-  token(20, 1, 'red'),
-  entry(30, 0, {
-    type: 'roundResolved',
-    outcome: { kind: 'draw', reason: 'p1NoBase', atk: [0, 0], tieBreakIterations: 0 },
-  }),
-];
+function roundsFrom(first: number): EventLogEntry[] {
+  return [
+    resolvedWin(10, 0, [9, 7], first),
+    token(10, 0, 'orange'),
+    resolvedWin(20, 1, [4, 8], first + 1),
+    token(20, 1, 'red'),
+    entry(30, 0, {
+      type: 'roundResolved',
+      round: first + 2,
+      outcome: { kind: 'draw', reason: 'p1NoBase', atk: [0, 0], tieBreakIterations: 0 },
+    }),
+  ];
+}
+
+const ROUNDS: EventLogEntry[] = roundsFrom(1);
 
 describe('collectRoundEvents', () => {
   it('keeps only round result events and returns the same object when nothing is new', () => {
@@ -180,8 +191,8 @@ describe('buildMatchSummary', () => {
     expect(kept?.rounds[0]?.token).toBe('You kept the Green token.');
   });
 
-  it('numbers a partial round list back from the last round', () => {
-    const summary = buildMatchSummary(WIN_SEAT_0, matchState({ roundNumber: 5 }), 0, ROUNDS);
+  it('numbers each round from roundResolved.round, also in a partial list', () => {
+    const summary = buildMatchSummary(WIN_SEAT_0, matchState({ roundNumber: 5 }), 0, roundsFrom(3));
     expect(summary?.rounds.map((r) => r.round)).toEqual([3, 4, 5]);
     expect(summary?.roundsComplete).toBe(false);
   });
@@ -225,6 +236,7 @@ describe('buildMatchSummary', () => {
       entry(41, 0, { type: 'tieBreakStarted', iteration: 1, atk: [30, 30] }),
       entry(41, 1, {
         type: 'roundResolved',
+        round: 1,
         outcome: {
           kind: 'win',
           winner: 1,
@@ -275,11 +287,13 @@ describe('buildMatchSummary', () => {
       entry(51, 0, { type: 'tieBreakDeckOut', seat: 1 }),
       entry(51, 1, {
         type: 'roundResolved',
+        round: 1,
         outcome: { kind: 'draw', reason: 'tieBreakDeckOut', atk: [20, 12], tieBreakIterations: 2 },
       }),
       entry(60, 0, { type: 'roundOver', reason: 'p1NoBase', seat: 0, atk: [0, 0] }),
       entry(61, 0, {
         type: 'roundResolved',
+        round: 1,
         outcome: { kind: 'draw', reason: 'p1NoBase', atk: [0, 0], tieBreakIterations: 0 },
       }),
     ];
@@ -308,6 +322,7 @@ describe('buildMatchSummary', () => {
     const summary = buildMatchSummary(WIN_SEAT_0, matchState({ roundNumber: 1 }), 0, [
       entry(70, 0, {
         type: 'roundResolved',
+        round: 1,
         outcome: {
           kind: 'win',
           winner: 0,

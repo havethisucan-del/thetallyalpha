@@ -29,11 +29,14 @@ async function storedProgress(page: Page): Promise<unknown> {
 
 /** The highlighted element is fully clear of the coach note (the note must not hide it). */
 async function expectUncovered(overlay: Locator, target: Locator): Promise<void> {
-  const note = await overlay.boundingBox();
-  const box = await target.boundingBox();
-  expect(note, 'coach note box').not.toBeNull();
-  expect(box, 'target box').not.toBeNull();
-  if (note && box) expect(intersects(note, box), 'coach note covers the target').toBe(false);
+  // Retried: cards and the note settle after short move transitions.
+  await expect(async () => {
+    const note = await overlay.boundingBox();
+    const box = await target.boundingBox();
+    expect(note, 'coach note box').not.toBeNull();
+    expect(box, 'target box').not.toBeNull();
+    if (note && box) expect(intersects(note, box), 'coach note covers the target').toBe(false);
+  }).toPass({ timeout: 3000 });
 }
 
 /** Performs the current gated command on the highlighted element. */
@@ -63,34 +66,93 @@ async function performGatedAction(page: Page, overlay: Locator): Promise<void> {
   await play.click();
 }
 
+/**
+ * The free final round (revision 2026-10-25): plays on the real table until the match is over and
+ * the coach moves on. End Turn when it is offered, else the first hand card with a play action.
+ */
+async function playFreeRound(page: Page, overlay: Locator): Promise<void> {
+  const endTurn = page.getByTestId('global-endTurn');
+  const hand = page.getByTestId('hand').locator('[data-card-id]');
+  const play = page.locator(
+    '[data-testid="card-actions"] :is([data-testid="card-playCreature"], [data-testid="card-playSpell"], [data-testid="card-nullify"]):enabled',
+  );
+  for (let i = 0; i < 80; i += 1) {
+    if ((await overlay.getAttribute('data-step')) !== 'goal-play') return;
+    if ((await endTurn.isVisible()) && (await endTurn.isEnabled())) {
+      await endTurn.click();
+    } else {
+      let played = false;
+      const count = await hand.count();
+      for (let k = 0; k < count && !played; k += 1) {
+        // A DOM click on the card button: in a fanned hand a neighbour may overlap its centre.
+        const card = hand.nth(k);
+        await card.dispatchEvent('click');
+        if ((await play.count()) > 0) {
+          await play.first().click();
+          played = true;
+        } else {
+          await card.dispatchEvent('click'); // deselect again
+        }
+      }
+    }
+    await page.waitForTimeout(400);
+  }
+  throw new Error('the free final round did not end');
+}
+
 /** Clicks through every step until the tutorial leaves the table. */
 async function playThrough(page: Page): Promise<string[]> {
   const overlay = page.getByTestId('tutorial-overlay');
   const seen: string[] = [];
+  let minionZoom: Box | null = null;
   for (let i = 0; i < MAX_STEPS; i += 1) {
     await expect(overlay).toBeVisible();
     const step = (await overlay.getAttribute('data-step')) ?? '';
     seen.push(step);
     const continueButton = page.getByTestId('tutorial-continue');
     const hint = page.getByTestId('tutorial-hint');
+    if (step === 'goal-play') {
+      // Free play starts collapsed (the whole table is in play); the match summary may show.
+      await expect(overlay).toHaveAttribute('data-collapsed', 'true');
+      await playFreeRound(page, overlay);
+      continue;
+    }
     // Wait for the step to settle into one of its three gate forms.
     await expect(continueButton.or(hint)).toBeVisible();
-    // Card steps enlarge one hand card in place and ring the part the text explains.
+    // Card steps move one hand card to the middle, enlarged, ring the part the text explains,
+    // dim the table, and keep the coach note clear of it.
     if (step === 'card-level') {
-      await expect(page.locator('[data-testid="hand"] [data-tutorial-zoom="level"]')).toHaveCount(
-        1,
-      );
+      const card = page.locator('[data-testid="hand"] [data-tutorial-zoom="level"]');
+      await expect(card).toHaveCount(1);
+      await page.waitForTimeout(400); // the move transition
+      minionZoom = await card.boundingBox();
+      await expectUncovered(overlay, card);
     }
-    // The spell is enlarged the same way, with its full text on the card, and stays uncovered.
+    // The spell is enlarged the same way, to the same size, with its full text on the card.
     if (step === 'combat-spell-secondary') {
       const spell = page.locator('[data-testid="hand"] [data-tutorial-zoom="secondary"]');
       await expect(spell).toHaveCount(1);
       await expect(spell.locator('.spell-sec')).toBeVisible();
       await expect(page.getByTestId('card-preview')).toHaveCount(0);
+      await page.waitForTimeout(400);
       await expectUncovered(overlay, spell);
+      const box = await spell.boundingBox();
+      expect(box, 'spell zoom box').not.toBeNull();
+      expect(minionZoom, 'minion zoom box').not.toBeNull();
+      if (box && minionZoom) expect(Math.abs(box.width - minionZoom.width)).toBeLessThan(2);
     }
-    // The table's own outcome card never competes with the coach.
-    await expect(page.getByTestId('outcome')).toHaveCount(0);
+    // A1: the final round is announced on the table and marked by the round counter.
+    if (step === 'goal-final-round') {
+      await expect(page.getByTestId('final-round-notice')).toBeVisible();
+      await expect(page.getByTestId('final-round-marker')).toBeVisible();
+    }
+    if (step === 'goal-done') {
+      // The match ended normally: its summary shows, as in a bot match.
+      await expect(page.getByTestId('match-summary')).toBeVisible();
+    } else {
+      // Until free play, the table's own outcome card never competes with the coach.
+      await expect(page.getByTestId('outcome')).toHaveCount(0);
+    }
     if (await continueButton.isVisible()) {
       const last = (await continueButton.innerText()).trim() === 'Finish';
       await expect(continueButton).toBeFocused();
@@ -135,6 +197,8 @@ test.describe('tutorial', () => {
       'combat-spell-primary',
       'combat-spell-secondary',
       'combat-spell',
+      'goal-final-round',
+      'goal-play',
     ]) {
       expect(steps).toContain(id);
     }

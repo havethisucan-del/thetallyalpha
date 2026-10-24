@@ -113,6 +113,13 @@
 .spell-card[data-verdict='blocked'] .spell-verdict {
   border-style: dashed;
 }
+/* RD-175 at table size: the whole card is greyed out (an inactive control; the "No effect" band
+   and the accessible name carry the meaning). Merely not castable now (not your turn, ...) is
+   not greyed. */
+.spell-small[data-verdict='blocked'] {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
 /* RD-175: neither effect would do anything, so both fade and none is highlighted. */
 .spell-card[data-verdict='blocked'] .spell-pri,
 .spell-card[data-verdict='blocked'] .spell-sec {

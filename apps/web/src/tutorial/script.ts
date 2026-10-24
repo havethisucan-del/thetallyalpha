@@ -1,9 +1,10 @@
 import type { TutorialScript } from './types';
 
 /**
- * ADR-0018 (revision 2026-10-23): the tutorial script. One round from its start (deal, Mulligan,
- * Nullify, Base) to the round and match win, explained in the mandatory order
- * card -> game flow -> combat -> goal, within three player turns.
+ * ADR-0018 (revisions 2026-10-23, 2026-10-25): the tutorial script. One scripted round from its
+ * start (deal, Mulligan, Nullify, Base) to the round win, explained in the mandatory order
+ * card -> game flow -> combat -> goal, within three player turns; then the final round, played
+ * freely against the L1 bot, to the end of the match.
  *
  * The human is seat 0 (P2 of this round), the bot seat 1 (P1). Nothing is played before the
  * tutorial opens (no prelude). ATK arithmetic (default catalog, `docs/cards/*.csv`):
@@ -27,23 +28,40 @@ import type { TutorialScript } from './types';
  *             C-D4: 76 + 64 + (177 + 30 - 30) = 317 vs 249. End Turn (ahead)
  *   bot       no Level 5 in hand: End Turn while behind -> you win the round (RD-169)
  *   goal      winner's Leading minion C-D4 is blue; blue is in the supply -> awarded (RD-26).
- *             All 7 tokens are then held, 4 to 3 -> the match ends, you win (RD-24).
+ *             You hold 4 tokens (green, violet, red, blue), the bot 1 (orange); yellow and
+ *             indigo stay in the supply, so the match goes on.
+ *   final     RD-22: after cleanup the pool is deck 9 + 9 returned by the Mulligan - 5 drawn
+ *             + 3 (your winning stack) = 16, plus the bot's unplayed C-B2 and C-F1 = 18 <= 18, so
+ *             round 8 is the final round (`deckExhausted` / `finalRound`): all 18 cards dealt,
+ *             9 each; you are P1 (RD-04). The 4 deck cards not drawn by the Mulligan (C-B1, C-D1,
+ *             C-E2, C-F3) give that pool low Levels. The other 30 cards start in the graveyard.
+ *             You play it freely; the bot plays as L1 once its scripted moves have run out.
+ *             RD-24: the match ends after it, more tokens wins. A tie (RD-40 replay) cannot
+ *             happen: the bot wins at most one token (4-1 -> at worst 3-2), so you win the match.
  *
- * Randomness: only the Mulligan shuffles. No scripted move draws (no draw or Link Up modifier
- * goes live: Bases have none, and every live symbol above is a buff or a nerf).
+ * Randomness: the Mulligan shuffles (the deck is ordered for it), then the final round's deal
+ * and the L1 bot. No scripted move draws (no draw or Link Up modifier goes live: Bases have none,
+ * and every live symbol above is a buff or a nerf).
  */
 export const TUTORIAL_SCRIPT: TutorialScript = {
   version: 1,
-  // ASCII "tutorial-tally-1": the RNG state the Mulligan shuffles with.
-  engineSeed: '7475746f7269616c2d74616c6c792d31',
+  // The RNG state the Mulligan shuffles with: ASCII "tutorial-tally-1" with its last two bytes
+  // stepped (by `orderDeckForMulligan`'s search, 2026-10-25) to the first variant that deals the
+  // Mulligan cards from the 9-card deck, so the search fits at its first try.
+  engineSeed: '7475746f7269616c2d74616c6c792e23',
   preset: {
     p1: 1,
     hands: [
       ['C-A1', 'C-A3', 'C-B4', 'C-E4', 'C-A4', 'C-B5', 'C-E5', 'C-G5', 'C-A5'],
-      ['C-G3', 'C-G2', 'C-B3', 'C-C4', 'C-G1', 'C-B2', 'C-F1'],
+      ['C-G3', 'C-G2', 'C-B3', 'C-C4', 'C-B2', 'C-F1'],
     ],
-    graveyard: ['C-D2', 'C-E1', 'S-10', 'C-E3'],
-    tokens: { green: 0, violet: 0, red: 0, orange: 1, yellow: 1, indigo: 1 },
+    // Everything not in a hand or the 9-card deck (the Mulligan's 5 + C-B1, C-D1, C-E2, C-F3).
+    graveyard: [
+      ...['C-D2', 'C-E1', 'S-10', 'C-E3', 'C-G1', 'C-A2', 'C-C1', 'C-C3', 'C-C5', 'C-D5'],
+      ...['C-F4', 'C-F5', 'C-G4', 'S-01', 'S-02', 'S-03', 'S-04', 'S-05', 'S-06', 'S-07'],
+      ...['S-08', 'S-09', 'S-11', 'S-12', 'S-13', 'S-14', 'S-16', 'S-17', 'S-18', 'S-19'],
+    ],
+    tokens: { green: 0, violet: 0, red: 0, orange: 1 },
     roundNumber: 7,
   },
   prelude: [],
@@ -198,7 +216,7 @@ export const TUTORIAL_SCRIPT: TutorialScript = {
     {
       id: 'combat-l4',
       section: 'combat',
-      text: 'The bot is down to 249. Now play your blue Level 4 on your Level 3. Several plays in one turn are fine.',
+      text: 'The bot is down to 249. A spell does not end your turn: now play your blue Level 4 on your Level 3.',
       targets: ['card:C-D4', 'card-actions'],
       gate: { kind: 'command', command: { type: 'playCreature', defId: 'C-D4' } },
     },
@@ -225,10 +243,32 @@ export const TUTORIAL_SCRIPT: TutorialScript = {
       gate: { kind: 'continue' },
     },
     {
+      id: 'goal-tokens',
+      section: 'goal',
+      text: 'The match ends when all 7 tokens are held. You hold 4, the bot 1, and 2 are still free, so the match goes on.',
+      targets: ['token-track'],
+      gate: { kind: 'continue' },
+    },
+    // Revision 2026-10-25: the match is played to its end, through the final round.
+    {
+      id: 'goal-final-round',
+      section: 'goal',
+      text: 'Only 18 cards are left in the deck and hands, so this new round is the final round. The match ends after it: more tokens wins.',
+      targets: ['final-round'],
+      gate: { kind: 'continue' },
+    },
+    {
+      id: 'goal-play',
+      section: 'goal',
+      text: 'Play the final round on your own. The bot now chooses its own moves. You are P1: place your Base.',
+      gate: { kind: 'play', until: { type: 'matchOver' } },
+    },
+    {
       id: 'goal-done',
       section: 'goal',
-      text: 'The match ends when all 7 tokens are held (or the deck runs low). You hold 4 of 7: you win! Have fun!',
-      targets: ['token-track'],
+      text: 'Match over! After the final round the side holding more tokens wins: that is you. You know the game now. Have fun!',
+      targets: ['match-summary'],
+      compact: true,
       gate: { kind: 'continue' },
     },
   ],

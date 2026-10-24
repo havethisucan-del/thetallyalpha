@@ -122,8 +122,10 @@ export function buildTutorial(
  * hand the preset's hand, so their sizes give the shuffle's input.
  *
  * The shuffle mixes the returned hand into the deck; when a seed would deal a returned hand
- * card, the next seed variant is tried (last byte stepped, deterministic): about half the seeds
- * fit, so a fit is found within a few tries. The seed used is returned with the preset.
+ * card, the next seed variant is tried (last two bytes stepped, deterministic). How many seeds fit
+ * depends on the deck size: with the shipped script's 9-card deck and 9-card hand (revision
+ * 2026-10-25: a small deck so that the next round is the final round) about 1 in 68 fits, so up
+ * to `MULLIGAN_SEED_TRIES` variants are tried. The seed used is returned with the preset.
  */
 export function orderDeckForMulligan(
   catalog: CardCatalog,
@@ -132,7 +134,7 @@ export function orderDeckForMulligan(
   engineSeed: string,
 ): { readonly preset: CartignonMatchPreset; readonly engineSeed: string } {
   seedBytes(engineSeed); // validates the format
-  const last = Number.parseInt(engineSeed.slice(30), 16);
+  const last = Number.parseInt(engineSeed.slice(28), 16);
   const plain = startPresetCartignonMatch(catalog, { ...preset, deckTop: [] });
   if (!plain.ok) throw new TutorialScriptError(`${plain.code}: ${plain.message}`);
   const zones = plain.state.round.board.zones;
@@ -155,7 +157,7 @@ export function orderDeckForMulligan(
     stacks: [[], []],
   };
   for (let attempt = 0; attempt < MULLIGAN_SEED_TRIES; attempt++) {
-    const seed = engineSeed.slice(0, 30) + ((last + attempt) % 256).toString(16).padStart(2, '0');
+    const seed = engineSeed.slice(0, 28) + ((last + attempt) % 65536).toString(16).padStart(4, '0');
     const probe = mulligan(probeZones, draw.seat, createRngFromSeedBytes(seedBytes(seed)));
     if (!probe.ok) throw new TutorialScriptError(`mulligan not possible (${probe.code})`);
     if (probe.drawn.length !== draw.defIds.length) {
@@ -174,4 +176,4 @@ export function orderDeckForMulligan(
   throw new TutorialScriptError('no engine seed variant deals the mulligan cards from the deck');
 }
 
-const MULLIGAN_SEED_TRIES = 64;
+const MULLIGAN_SEED_TRIES = 4096;

@@ -11,8 +11,11 @@ import type { BotTransport } from '../solo/botProtocol';
  * ADR-0018 decision 4: the tutorial's bot. It answers `LocalMatch`'s requests with the scripted
  * moves, but only while the coach has released it (`setReleased(true)`, during "watch the bot"
  * steps); until then a request waits. A scripted move that is not legal in the observed position
- * (or a request after the script ran out) switches it to the L1 bot for good and reports
- * `offScript`, so the match never hangs.
+ * switches it to the L1 bot for good and reports `offScript`, so the match never hangs.
+ *
+ * Revision 2026-10-25 (the tutorial plays to the end of the match): a request after the script
+ * ran out is the planned handover, not a deviation: it is answered by the L1 bot, still only
+ * while released (the coach's free-play step releases it), and `offScript` stays false.
  */
 
 class DisposedError extends Error {
@@ -100,9 +103,10 @@ export class ScriptedBot implements BotTransport {
   #answer(request: BotRequest): BotResponse {
     if (!this.#offScript) {
       const move = this.#moves[this.#next];
+      // The script ran out: the planned handover to the L1 bot.
+      if (move === undefined) return decideFromRequest(this.#context, { ...request, level: 1 });
       const { match, seat } = request.observation;
       if (
-        move !== undefined &&
         match.status.kind === 'playing' &&
         validateCommand(this.#context, match.round, seat, move).ok
       ) {

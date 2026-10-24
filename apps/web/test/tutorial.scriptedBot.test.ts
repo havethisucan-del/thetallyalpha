@@ -75,13 +75,23 @@ describe('ScriptedBot', () => {
     expect(onOffScript).toHaveBeenCalledTimes(1);
   });
 
-  it('goes off script when the script ran out', async () => {
-    const bot = new ScriptedBot({ context: built.context, moves: [] });
-    bot.setReleased(true);
+  it('hands over to the L1 bot when the script ran out, still only while released', async () => {
+    const onOffScript = vi.fn();
+    const bot = new ScriptedBot({ context: built.context, moves: [], onOffScript });
     const request = firstRequest();
-    const response = await bot.decide(request);
-    expect(bot.offScript).toBe(true);
+    let answered = false;
+    const pending = bot.decide(request).then((r) => {
+      answered = true;
+      return r;
+    });
+    await settle();
+    expect(answered).toBe(false);
+    bot.setReleased(true);
+    const response = await pending;
     expect(isLegal(request, response.command)).toBe(true);
+    // The planned handover (revision 2026-10-25) is not a deviation from the script.
+    expect(bot.offScript).toBe(false);
+    expect(onOffScript).not.toHaveBeenCalled();
   });
 
   it('rejects waiting and later requests after dispose', async () => {

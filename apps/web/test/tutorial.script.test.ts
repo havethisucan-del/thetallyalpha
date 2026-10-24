@@ -49,6 +49,16 @@ async function playThrough(match: TutorialMatch): Promise<CartignonSeatEvent[]> 
     const gate = state.step.gate;
     if (gate.kind === 'continue') {
       expect(match.continue()).toBe(true);
+    } else if (gate.kind === 'play') {
+      // Free play: the whole legal list is offered; end the turn when allowed, else the first
+      // legal command (a Base, a stack card or a choice), and let the L1 bot answer.
+      const legal = match.getSnapshot().cartignon?.private.legal ?? [];
+      const pick = legal.find((c) => c.type === 'endTurn') ?? legal[0];
+      if (pick !== undefined) {
+        expect(match.sendAction(commandToAction(pick))).not.toBeNull();
+      }
+      await match.whenIdle();
+      await Promise.resolve();
     } else if (gate.kind === 'command') {
       const legal = match.getSnapshot().cartignon?.private.legal ?? [];
       expect(legal).toHaveLength(1);
@@ -116,11 +126,12 @@ describe('tutorial script', () => {
     ).toEqual(['condition', 'primary', 'secondary']);
   });
 
-  it('plays to the end on script: round and token won by seat 0, match over', async () => {
+  it('plays to the end: scripted round won, then a free final round, match over', async () => {
     const match = new TutorialMatch({ delay: () => 0, botSeed: expandTestSeed(5) });
     const events = await playThrough(match);
     const state = match.getTutorialState();
     expect(state.offScript).toBe(false);
+    expect(state.freePlay).toBe(true);
     expect(state.status).toBe('finished');
 
     const id = match.cardIdOf;
@@ -175,10 +186,36 @@ describe('tutorial script', () => {
       type: 'tokenChanged',
       change: { seat: 0, color: 'blue', kind: 'awarded', leadingCardId: blue },
     });
+    // The scripted win does not end the match: 4 tokens to 1, two still in the supply.
+    const matchOver = events.filter((e) => e.type === 'matchOver');
+    expect(matchOver).toHaveLength(1);
+    // RD-22: the pool after round 7's cleanup is 18, so round 8 is the final round, 9 cards each.
     expect(events).toContainEqual(
-      expect.objectContaining({ type: 'matchOver', reason: 'allTokensHeld', winner: 0 }),
+      expect.objectContaining({ type: 'deckExhausted', reason: 'finalRound', perSeat: 9 }),
     );
+    // Exactly two rounds are resolved: the scripted round 7 and the free final round 8.
+    expect(events.flatMap((e) => (e.type === 'roundResolved' ? [e.round] : []))).toEqual([7, 8]);
+    // RD-24: the match ends after the final round; more tokens wins (no tie is possible).
+    expect(matchOver[0]).toMatchObject({ reason: 'finalRoundPlayed', winner: 0 });
     expect(match.getSnapshot().view?.outcome).not.toBeNull();
     match.leave();
+  });
+
+  it('starts with a token lead that cannot be lost in one round, and an 18-card pool after it', () => {
+    const tokens = TUTORIAL_SCRIPT.preset.tokens ?? {};
+    const held = Object.values(tokens);
+    expect(held.filter((seat) => seat === 0)).toHaveLength(3);
+    expect(held.filter((seat) => seat === 1)).toHaveLength(1);
+    const built = buildTutorial();
+    const zones = (built.snapshot.state as CartignonMatchState).round.board.zones;
+    expect(zones.deck).toHaveLength(9);
+    expect(zones.hands[1]).toHaveLength(6);
+    expect(zones.graveyard).toHaveLength(30);
+  });
+
+  it('ends with free play, then a last Continue after the match is over', () => {
+    const tail = TUTORIAL_SCRIPT.steps.slice(-2);
+    expect(tail.map((s) => s.gate.kind)).toEqual(['play', 'continue']);
+    expect(tail[0]?.gate).toEqual({ kind: 'play', until: { type: 'matchOver' } });
   });
 });

@@ -578,7 +578,8 @@ export const RULES: readonly RulesSection[] = [
             items: [
               'All hand cards go back into the deck.',
               'The cards are dealt out evenly, half each. An odd card left over goes to the graveyard.',
-              'After this round the match is over.',
+              'After this round the match is over, even if not all 7 tokens are held: the player with more tokens wins.',
+              'The table announces it when the final round starts and marks it next to the round counter.',
             ],
           },
           {

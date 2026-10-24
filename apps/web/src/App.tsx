@@ -99,8 +99,8 @@ function SoloMatchScreen({
 
 /**
  * The tutorial on the table. While the coach runs on script (and after its last step) the table's
- * own outcome card is held back: the coach's goal steps narrate the 4-3 match end and its Finish
- * button leads out. Off script (free play) the outcome card shows as in a bot match.
+ * own outcome card is held back. From the coach's free-play step on (the final round, ADR-0018
+ * revision 2026-10-25) and off script, the match summary shows as in a bot match.
  */
 function TutorialMatchScreen({
   tutorial,
@@ -110,7 +110,10 @@ function TutorialMatchScreen({
   onDone: (status: TutorialProgressStatus) => void;
 }) {
   const state = useSyncExternalStore(tutorial.subscribe, tutorial.getTutorialState);
-  const coaching = state.status === 'finished' || (state.status === 'running' && !state.offScript);
+  // From the free-play step on (the final round), the match summary shows as in a bot match.
+  const coaching =
+    !state.freePlay &&
+    (state.status === 'finished' || (state.status === 'running' && !state.offScript));
   return (
     <SoloMatchScreen
       source={tutorial}

@@ -16,6 +16,7 @@ import type { TableModel } from '../../match/cartignon/tableModel';
 import { ActionAnnouncer } from './ActionAnnouncer';
 import { ActionBar } from './ActionBar';
 import { CenterStrip } from './CenterStrip';
+import { FinalRoundMarker, FinalRoundNotice } from './FinalRoundNotice';
 import { ChoiceSheet } from './ChoiceSheet';
 import { HandRow, handRows } from './HandRow';
 import { LogCorner } from './LogCorner';
@@ -247,16 +248,25 @@ export function CartignonTable({
       </div>
 
       <p className="ct-round text-sm leading-none text-ink-muted tabular-nums">
-        <span className="sr-only">Round </span>
-        <span aria-hidden="true">R</span>
-        <span data-testid="table-round">
-          {center.round}
-          {center.finalRound ? ' (final)' : ''}
+        {center.finalRound && <FinalRoundMarker replays={center.replays} />}
+        <span>
+          <span className="sr-only">Round </span>
+          <span aria-hidden="true">R</span>
+          <span data-testid="table-round">{center.round}</span>
+          <span className="sr-only">, turn </span>
+          <span aria-hidden="true"> · T</span>
+          {center.turn}
         </span>
-        <span className="sr-only">, turn </span>
-        <span aria-hidden="true"> · T</span>
-        {center.turn}
       </p>
+
+      <FinalRoundNotice
+        round={center.round}
+        replays={center.replays}
+        finalRound={center.finalRound}
+        finished={model.finished}
+        myStackEmpty={model.me.stack.length === 0}
+        tokens={{ mine: tokenCount(tokens, 'mine'), theirs: tokenCount(tokens, 'theirs') }}
+      />
 
       <div className="ct-toasts">
         <ActionAnnouncer announcement={announcement} messageKey={fresh?.actionId ?? null} />

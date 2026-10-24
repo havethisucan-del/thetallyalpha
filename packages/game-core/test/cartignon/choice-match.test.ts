@@ -53,7 +53,7 @@ function lookingState(): RoundState {
 
 describe('guards: no round end, cleanup or start with a pending choice (programmer errors)', () => {
   it('resolveRound throws while a choice is pending', () => {
-    expect(() => resolveRound(ctx, lookingState(), rng())).toThrow(/pending spell choice/);
+    expect(() => resolveRound(ctx, lookingState(), rng(), 1)).toThrow(/pending spell choice/);
   });
 
   it('cleanupRound throws with looked-at cards on the board', () => {

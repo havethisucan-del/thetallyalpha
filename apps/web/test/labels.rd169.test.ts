@@ -73,6 +73,14 @@ describe('spell hints (RD-171)', () => {
     expect(spellReasonText('SOMETHING_NEW')).toBe('Cannot be cast now (SOMETHING_NEW).');
   });
 
+  it('says "No effect" when neither effect would do anything (RD-175)', () => {
+    const hint = { branch: 'secondary', castable: false, reason: 'SPELL_NO_EFFECT' } as const;
+    expect(spellHintBadge(hint)).toBe('No effect');
+    expect(spellHintText(hint)).toBe(
+      'No effect now, cannot be played: Its effect would do nothing right now (no Leading creature to target, or no card to draw).',
+    );
+  });
+
   it('marks spells this build cannot play', () => {
     const hint = { branch: null, castable: false, reason: 'SPELL_NOT_SUPPORTED' } as const;
     expect(spellHintBadge(hint)).toBe('Unavailable');

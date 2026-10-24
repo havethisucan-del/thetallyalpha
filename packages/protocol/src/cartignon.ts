@@ -502,7 +502,7 @@ export const cartignonSeatEventSchema = z.union([
   ev('tieBreakStarted', { iteration: countSchema, atk: atkPairSchema }),
   ev('tieBreakCardsReturned', { seat: seatSchema, count: countSchema }),
   ev('tieBreakDeckOut', { seat: seatSchema }),
-  ev('roundResolved', { outcome: roundOutcomeSchema }),
+  ev('roundResolved', { round: countSchema, outcome: roundOutcomeSchema }),
   ev('tokenChanged', {
     change: z.strictObject({
       seat: seatSchema,

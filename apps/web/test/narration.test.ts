@@ -100,6 +100,7 @@ describe('narrateEvents', () => {
         { type: 'roundOver', reason: 'opponentAhead', seat: 1, atk: [9, 5] },
         {
           type: 'roundResolved',
+          round: 1,
           outcome: {
             kind: 'win',
             winner: 0,
@@ -130,6 +131,7 @@ describe('narrateEvents', () => {
         { type: 'roundOver', reason: 'equalStall', seat: 1, atk: [6, 6] },
         {
           type: 'roundResolved',
+          round: 1,
           outcome: {
             kind: 'win',
             winner: 0,
@@ -151,6 +153,7 @@ describe('narrateEvents', () => {
       { type: 'roundOver', reason: 'opponentAhead', seat: 0, atk: [41, 76] },
       {
         type: 'roundResolved',
+        round: 1,
         outcome: {
           kind: 'win',
           winner: 1,
@@ -183,6 +186,7 @@ describe('narrateEvents', () => {
         { type: 'tieBreakStarted', iteration: 1, atk: [6, 6] },
         {
           type: 'roundResolved',
+          round: 1,
           outcome: {
             kind: 'win',
             winner: 0,
@@ -196,6 +200,7 @@ describe('narrateEvents', () => {
       [
         {
           type: 'roundResolved',
+          round: 1,
           outcome: { kind: 'draw', reason: 'p1NoBase', atk: [0, 0], tieBreakIterations: 0 },
         },
       ],

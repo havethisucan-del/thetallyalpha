@@ -9,6 +9,9 @@ import type { EventMatch, TutorialState, TutorialStep } from './types';
  * in the same revision as the command that completed the previous step (e.g. the bot's turn start
  * right after End Turn) still counts. A `continue` step clears the buffer (nothing the player
  * reads about may be skipped by an older event).
+ *
+ * Revision 2026-10-25: `play` steps wait for their `until` event like event steps; reaching one
+ * sets `freePlay` for the rest of the tutorial.
  */
 export function eventMatches(event: CartignonSeatEvent, match: EventMatch): boolean {
   if (event.type !== match.type) return false;
@@ -32,6 +35,7 @@ export class TutorialController {
       step: first,
       total: steps.length,
       offScript: false,
+      freePlay: first.gate.kind === 'play',
     };
   }
 
@@ -88,16 +92,22 @@ export class TutorialController {
       this.#set({ ...this.#state, status: 'finished' });
       return;
     }
-    this.#set({ ...this.#state, index: this.#state.index + 1, step: next });
+    this.#set({
+      ...this.#state,
+      index: this.#state.index + 1,
+      step: next,
+      freePlay: this.#state.freePlay || next.gate.kind === 'play',
+    });
     this.#drainEvents();
   }
 
-  /** Completes the current event step if the buffer holds its event (`#advance` recurses). */
+  /** Completes the current event / play step if the buffer holds its event (`#advance` recurses). */
   #drainEvents(): void {
     if (!this.#running()) return;
     const gate = this.#state.step.gate;
-    if (gate.kind !== 'event') return;
-    const at = this.#buffer.findIndex((event) => eventMatches(event, gate.match));
+    if (gate.kind !== 'event' && gate.kind !== 'play') return;
+    const awaited = gate.kind === 'event' ? gate.match : gate.until;
+    const at = this.#buffer.findIndex((event) => eventMatches(event, awaited));
     if (at < 0) return;
     this.#buffer = this.#buffer.slice(at + 1);
     this.#advance();

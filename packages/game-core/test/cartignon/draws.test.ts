@@ -255,7 +255,7 @@ describe('creature draw modifiers (RD-98, RD-48, RD-23)', () => {
       playedThisTurn: false,
       phase: { kind: 'roundOver', reason: 'equalStall', seat: 0, atk: [10, 10] },
     });
-    const r = resolveRound(ctx, state, rng());
+    const r = resolveRound(ctx, state, rng(), 1);
     if (!r.ok) throw new Error(r.code);
     const i = r.events.findIndex((e) => e.type === 'modifierLive');
     expect(r.events[i]).toEqual({

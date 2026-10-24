@@ -64,7 +64,7 @@ export type SummaryResult = 'win' | 'loss' | 'draw';
 
 export interface RoundSummary {
   key: string;
-  /** The round number, or null when it cannot be told from the data seen. */
+  /** The round number (`roundResolved.round`); null is kept for callers, no longer produced. */
   round: number | null;
   result: SummaryResult;
   /** One line, e.g. `Opponent won: you ended your turn behind (41 vs 76)` (`roundHeadline`). */
@@ -133,11 +133,11 @@ function sideOf(seat: Seat, mySeat: Seat): Side {
   return seat === mySeat ? 'mine' : 'theirs';
 }
 
-function finish(account: RoundAccount, key: string): RoundSummary {
+function finish(account: RoundAccount, key: string, round: number): RoundSummary {
   const { outcome } = account;
   return {
     key,
-    round: null,
+    round,
     result: outcome.kind === 'draw' ? 'draw' : outcome.winner === 'mine' ? 'win' : 'loss',
     headline: roundHeadline(account),
     details: roundDetails(account),
@@ -154,7 +154,13 @@ export function roundSummaries(entries: readonly EventLogEntry[], mySeat: Seat):
   let end: RoundEnd | null = null;
   let deckOutBy: Side | null = null;
   /** The last resolved round, still open for its token move (same step). */
-  let open: { account: RoundAccount; key: string; revision: number; index: number } | null = null;
+  let open: {
+    account: RoundAccount;
+    key: string;
+    round: number;
+    revision: number;
+    index: number;
+  } | null = null;
   for (const entry of entries) {
     const event = entry.event;
     if (event.type === 'roundOver') {
@@ -167,8 +173,14 @@ export function roundSummaries(entries: readonly EventLogEntry[], mySeat: Seat):
       const outcome = outcomeView(event.outcome, mySeat);
       if (outcome === null) continue;
       const account: RoundAccount = { outcome, end, deckOutBy, token: null };
-      open = { account, key: entry.key, revision: entry.revision, index: rounds.length };
-      rounds.push(finish(account, entry.key));
+      open = {
+        account,
+        key: entry.key,
+        round: event.round,
+        revision: entry.revision,
+        index: rounds.length,
+      };
+      rounds.push(finish(account, entry.key, event.round));
       end = null;
       deckOutBy = null;
     } else if (event.type === 'tokenChanged') {
@@ -176,7 +188,7 @@ export function roundSummaries(entries: readonly EventLogEntry[], mySeat: Seat):
       if (open !== null && open.revision === entry.revision && open.account.token === null) {
         const { seat, color, kind } = event.change;
         open.account.token = { side: sideOf(seat, mySeat), color, kind };
-        rounds[open.index] = finish(open.account, open.key);
+        rounds[open.index] = finish(open.account, open.key, open.round);
       }
     }
   }
@@ -227,13 +239,8 @@ export function buildMatchSummary(
   // `roundNumber` counts the round in play; the match ends after resolving it, except on a
   // forfeit, which ends during an unresolved round.
   const roundsPlayed = Math.max(0, forfeit ? match.roundNumber - 1 : match.roundNumber);
+  // Each result carries its round number (`roundResolved.round`).
   const list = roundSummaries(rounds, mySeat);
-  // The collected results run up to the match end; number them back from the last one.
-  const first = roundsPlayed - list.length + 1;
-  const numbered = list.map((round, index) => {
-    const number = first + index;
-    return { ...round, round: number >= 1 && number <= roundsPlayed ? number : null };
-  });
 
   return {
     result,
@@ -242,7 +249,7 @@ export function buildMatchSummary(
     conclusion: conclusionText(over, mySeat, roundsPlayed),
     tokens,
     roundsPlayed,
-    rounds: numbered,
-    roundsComplete: first <= 1,
+    rounds: list,
+    roundsComplete: roundsPlayed === 0 || list.some((round) => round.round === 1),
   };
 }

@@ -13,6 +13,8 @@ import type { ScriptCommand, TutorialState } from './types';
  * `cartignon.private.legal` holds only the current step's command (nothing on Continue / event
  * steps), and `sendAction` refuses every other action. The table components need no tutorial
  * knowledge: they derive every action from `private.legal`. Off script, nothing is filtered.
+ * Revision 2026-10-25: nor from the first free-play (`play`) step on, where the bot is released
+ * and plays as L1 once its script has run out, until the match ends.
  */
 
 export interface TutorialMatchOptions {
@@ -141,10 +143,10 @@ export class TutorialMatch implements MatchSource {
 
   // --- internals -----------------------------------------------------------------------------
 
-  /** No gating once the bot left the script or the coach is no longer running. */
+  /** No gating once the bot left the script, the coach was skipped, or free play began. */
   #gatingOff(): boolean {
     const state = this.#controller.state;
-    return state.offScript || state.status === 'skipped';
+    return state.offScript || state.status === 'skipped' || state.freePlay;
   }
 
   /** The current step's command as a wire command, when it is a command step. */
@@ -184,15 +186,17 @@ export class TutorialMatch implements MatchSource {
   }
 
   /**
-   * Releases the scripted bot on "watch the bot" steps (and for good once skipped: the match may
-   * start on the bot's turn, which must not hang); checks that a gated command is legal.
+   * Releases the scripted bot on "watch the bot" steps and free-play steps (and for good once
+   * skipped: the match may start on the bot's turn, which must not hang); checks that a gated
+   * command is legal.
    */
   #onStepChange(): void {
     const state = this.#controller.state;
     this.#bot.setReleased(
       state.offScript ||
         state.status === 'skipped' ||
-        (state.status === 'running' && state.step.gate.kind === 'event'),
+        (state.status === 'running' &&
+          (state.step.gate.kind === 'event' || state.step.gate.kind === 'play')),
     );
     const command = this.#gatedCommand();
     const parts = this.#inner.getSnapshot().cartignon;

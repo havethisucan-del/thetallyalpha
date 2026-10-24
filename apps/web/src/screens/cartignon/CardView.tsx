@@ -129,8 +129,11 @@ export function CardView({
  * (2026-10-23: highlighted like Primary, no longer a pale tint), Unavailable = no fill on a dashed
  * rule. All three are separated from the card by an ink rule
  * (the one UI line; the amber edge Secondary had before is gone, its fill and text carry it).
- * Not castable now: struck through (thick line) at full contrast; the reason is in the card's tooltip and accessible name. Text always carries the
- * meaning, colour never alone. */
+ * Not castable right now (not your turn, wrong phase, ...): the band still names the branch that
+ * would fire, unchanged (2026-10-25, A5); the reason is in the card's tooltip and accessible name.
+ * No effect at all (RD-175 `SPELL_NO_EFFECT`): the band reads "No effect" on a dashed rule and the
+ * whole table-size card is greyed out (`spellCard.css`, `data-verdict='blocked'`). Text always
+ * carries the meaning, colour never alone. */
 export function SpellHintBadge({
   hint,
   onPaper = false,
@@ -141,8 +144,12 @@ export function SpellHintBadge({
   onPaper?: boolean;
   className?: string;
 }) {
-  const look =
-    hint.branch === 'primary'
+  const noEffect = spellVerdict(hint) === 'blocked';
+  const look = noEffect
+    ? onPaper
+      ? 'border-dashed text-[#1c1917]'
+      : 'border-dashed text-ink'
+    : hint.branch === 'primary'
       ? 'bg-turn text-on-turn'
       : hint.branch === 'secondary'
         ? // Dark ink on amber reads lighter than Primary's light-on-blue: normal tracking and a
@@ -155,11 +162,12 @@ export function SpellHintBadge({
     <span
       aria-hidden="true"
       className={`relative z-3 block shrink-0 overflow-hidden whitespace-nowrap rounded-b-sm border-t-(length:--line-width) border-line px-px text-center font-sans text-[10px] font-bold leading-4 ${
-        hint.branch === 'secondary' ? '' : 'tracking-tight'
-      } ${look} ${className} ${hint.castable ? '' : 'line-through decoration-2'}`}
+        hint.branch === 'secondary' && !noEffect ? '' : 'tracking-tight'
+      } ${look} ${className}`}
       data-testid="spell-hint"
       data-branch={hint.branch ?? 'none'}
       data-castable={hint.castable ? 'true' : 'false'}
+      data-no-effect={noEffect ? 'true' : undefined}
     >
       {spellHintBadge(hint)}
     </span>

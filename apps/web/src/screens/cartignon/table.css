@@ -173,6 +173,12 @@
 .ct-mid > * {
   pointer-events: auto;
 }
+/* The round-over callout sits just above the line, over the opponent's stack: the whole middle
+   layer rises above the seats (z 5) and tokens (z 20) so empty slots and ATK pills never draw
+   through it (A3, 2026-10-25); still below the hands, toasts and popovers. */
+.ct-mid:has(.ct-round-over) {
+  z-index: 26;
+}
 /* An open pile popover rises above the stacks and hands. */
 .ct-mid:has(.ct-popover) {
   z-index: 45;
@@ -545,6 +551,51 @@
   top: calc(var(--gut) + 12px);
   right: calc(var(--gut) + 56px);
   z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* A1 (2026-10-25): the final round. The marker by the round counter stays for the whole round:
+   rubric ink on a pale rubric wash, so it reads at a glance without shouting. */
+.ct-final-marker {
+  color: var(--ui-rubric);
+  background: var(--ui-rubric-surface);
+  border: 1.5px solid var(--ui-rubric);
+  white-space: nowrap;
+}
+/* The notice at round start: over the middle line (the stacks are still empty), above the seats,
+   tokens and toasts, below popovers, the log corner and the outcome. */
+.ct-final-live {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 36;
+  width: min(calc(100vw - 2 * var(--gut)), 26rem);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.ct-final-live > * {
+  pointer-events: auto;
+}
+.ct-final-notice {
+  border-left: 6px solid var(--ui-rubric);
+  animation: ct-final-in 220ms ease-out;
+}
+@keyframes ct-final-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ct-final-notice {
+    animation: none;
+  }
 }
 
 .ct-toasts {

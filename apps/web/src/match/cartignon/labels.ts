@@ -355,8 +355,13 @@ export function spellReasonText(reason: string | null): string {
   return SPELL_REASON_TEXT[reason] ?? `Cannot be cast now (${reason}).`;
 }
 
-/** Short badge text: `Primary` / `Secondary`, or `Unavailable` when the spell cannot be played. */
+/**
+ * Short badge text: the branch that would fire (`Primary` / `Secondary`), also when the spell is
+ * merely not castable right now; `No effect` when neither effect would do anything (RD-175
+ * `SPELL_NO_EFFECT`); `Unavailable` when this build cannot play the spell.
+ */
 export function spellHintBadge(hint: SpellHint): string {
+  if (hint.branch !== null && hint.reason === 'SPELL_NO_EFFECT') return 'No effect';
   if (hint.branch === 'primary') return 'Primary';
   if (hint.branch === 'secondary') return 'Secondary';
   return 'Unavailable';
@@ -372,6 +377,9 @@ export function spellHintText(hint: SpellHint): string {
       ? 'This spell cannot be played yet.'
       : `${hint.castable ? 'Cast now' : 'On this board'}: ${hint.branch} effect.`;
   if (hint.castable || hint.branch === null) return effect;
+  if (hint.reason === 'SPELL_NO_EFFECT') {
+    return `No effect now, cannot be played: ${spellReasonText(hint.reason)}`;
+  }
   return `${effect} Not castable now: ${spellReasonText(hint.reason)}`;
 }
 

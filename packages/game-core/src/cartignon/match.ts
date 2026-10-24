@@ -179,7 +179,7 @@ export type MatchEvent =
     }
   | { readonly type: 'tieBreakCardsReturned'; readonly seat: Seat; readonly count: number }
   | { readonly type: 'tieBreakDeckOut'; readonly seat: Seat }
-  | { readonly type: 'roundResolved'; readonly outcome: RoundOutcome }
+  | { readonly type: 'roundResolved'; readonly round: number; readonly outcome: RoundOutcome }
   | { readonly type: 'tokenChanged'; readonly change: TokenChange }
   | { readonly type: 'roundCleanedUp'; readonly toGraveyard: number; readonly toDeck: number }
   | {
@@ -437,7 +437,12 @@ export type ResolveRoundResult =
  * - `equalStall`: RD-169, two consecutive turn ends at equal ATK, the second without a play ->
  *   tie-break (RD-19). ATK is equal by construction (same board as the round end).
  */
-export function resolveRound(ctx: RoundContext, state: RoundState, rng: Rng): ResolveRoundResult {
+export function resolveRound(
+  ctx: RoundContext,
+  state: RoundState,
+  rng: Rng,
+  roundNumber: number,
+): ResolveRoundResult {
   if (state.pendingChoice !== undefined || state.board.lookingAt !== undefined) {
     throw new Error('resolveRound called with a pending spell choice');
   }
@@ -467,7 +472,7 @@ export function resolveRound(ctx: RoundContext, state: RoundState, rng: Rng): Re
     board = tie.board;
     outcome = tie.outcome;
   }
-  events.push({ type: 'roundResolved', outcome });
+  events.push({ type: 'roundResolved', round: roundNumber, outcome });
   return { ok: true, outcome, board, events };
 }
 
@@ -741,7 +746,7 @@ function matchOver(
  */
 export function finishRound(ctx: RoundContext, match: CartignonMatchState, rng: Rng): MatchResult {
   if (match.status.kind === 'matchOver') return reject('MATCH_OVER', 'the match is over');
-  const resolved = resolveRound(ctx, match.round, rng);
+  const resolved = resolveRound(ctx, match.round, rng, match.roundNumber);
   if (!resolved.ok) return resolved;
   const events: MatchEvent[] = [...resolved.events];
   const { outcome } = resolved;

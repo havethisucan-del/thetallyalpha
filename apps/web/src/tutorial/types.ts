@@ -25,11 +25,16 @@ export interface EventMatch {
  * - `continue`: the player presses Continue (nothing on the table is playable);
  * - `command`: the player sends exactly this command (the only legal entry shown);
  * - `event`: the coach waits for a seat event; the scripted bot moves only during such steps.
+ * - `play` (revision 2026-10-25): free play until the seat event `until` (e.g. `matchOver`). The
+ *   gate is lifted (every legal command is offered), the bot is released and, once its scripted
+ *   moves have run out, plays as the L1 bot. From the first `play` step on the state is
+ *   `freePlay` (the table's own match summary is no longer held back).
  */
 export type StepGate =
   | { readonly kind: 'continue' }
   | { readonly kind: 'command'; readonly command: ScriptCommand }
-  | { readonly kind: 'event'; readonly match: EventMatch };
+  | { readonly kind: 'event'; readonly match: EventMatch }
+  | { readonly kind: 'play'; readonly until: EventMatch };
 
 /** The four lesson sections, in their mandatory order (user, 2026-10-23). */
 export type TutorialSection = 'card' | 'flow' | 'combat' | 'goal';
@@ -58,6 +63,8 @@ export type TargetId =
   | 'center-strip'
   | 'turn-banner'
   | 'piles'
+  | 'final-round'
+  | 'match-summary'
   | `card:${string}`;
 
 /** The part of a minion face a zoom step points at (`.minion-atk`, `.minion-lvl`, ...). */
@@ -83,6 +90,11 @@ export interface TutorialStep {
    * Secondary) in place (`SpellCard`). The card should also be a highlight target.
    */
   readonly zoom?: { readonly defId: string; readonly part: ZoomPart };
+  /**
+   * The note collapses to its header and buttons when it cannot sit beside its targets (e.g. the
+   * match summary, which fills a phone screen), so it does not cover them. Revision 2026-10-25.
+   */
+  readonly compact?: boolean;
   readonly gate: StepGate;
 }
 
@@ -125,4 +137,6 @@ export interface TutorialState {
   readonly total: number;
   /** The scripted bot left the script: gating is off and the bot plays as L1 (free play). */
   readonly offScript: boolean;
+  /** A `play` step has been reached: the player plays on freely from here (revision 2026-10-25). */
+  readonly freePlay: boolean;
 }
