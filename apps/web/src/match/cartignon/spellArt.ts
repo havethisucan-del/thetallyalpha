@@ -29,15 +29,19 @@ export function allSpellTexts(): SpellText[] {
   return [...TEXT_BY_DEF.values()];
 }
 
-/** `met` = the condition holds, the Primary fires; `unmet` = the Secondary fires. */
-export type SpellVerdict = 'met' | 'unmet';
+/**
+ * `met` = the condition holds, the Primary fires; `unmet` = the Secondary fires; `blocked` = the
+ * Secondary would do nothing, so the spell cannot be played (RD-175 `SPELL_NO_EFFECT`).
+ */
+export type SpellVerdict = 'met' | 'unmet' | 'blocked';
 
 /**
- * The verdict chip of the enlarged spell, straight from the server's hint branch. Null when there
- * is no hint (not in the own hand) or the build cannot play the spell (`branch: null`).
+ * The verdict chip of the enlarged spell, straight from the server's hint branch and reason. Null
+ * when there is no hint (not in the own hand) or the build cannot play the spell (`branch: null`).
  */
 export function spellVerdict(hint: SpellHint | null): SpellVerdict | null {
   if (hint === null || hint.branch === null) return null;
+  if (hint.reason === 'SPELL_NO_EFFECT') return 'blocked';
   return hint.branch === 'primary' ? 'met' : 'unmet';
 }
 
@@ -45,6 +49,7 @@ export function spellVerdict(hint: SpellHint | null): SpellVerdict | null {
 export const VERDICT_TEXT: Readonly<Record<SpellVerdict, { mark: string; text: string }>> = {
   met: { mark: '✓', text: 'Condition met — Primary fires' },
   unmet: { mark: '✗', text: 'Condition not met — Secondary fires' },
+  blocked: { mark: '✗', text: 'No effect now — cannot be played' },
 };
 
 /**

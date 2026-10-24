@@ -7,6 +7,7 @@ import {
   createRoundContext,
   legalCommands,
   pendingChoiceView,
+  resolveSpell,
   roundCardIds,
   type Board,
   type CardId,
@@ -132,17 +133,36 @@ function gambit(
 }
 
 describe('S-19 draw (RD-158)', () => {
-  it('empty graveyard: still playable, nothing happens, S-19 goes to the graveyard', () => {
+  it('RD-175: empty graveyard -> no effect, so S-19 cannot be played', () => {
     const s = gambit([]);
-    expect(legalCommands(ctx, s, 0)).toContainEqual(ps(S19));
+    expectReject(s, 0, ps(S19), 'SPELL_NO_EFFECT');
+    // The resolution itself is unchanged (defensive): nothing is drawn, S-19 goes to the graveyard.
+    const hand = s.board.zones.hands[0].filter((c) => c !== S19);
+    const board: Board = { ...s.board, zones: { ...s.board.zones, hands: [hand, []] } };
+    const r = resolveSpell(ctx.cards, board, 0, S19, rng());
+    expect(types(r.events)).toEqual(['spellPlayed', 'gambitDrawn', 'spellResolved']);
+    expect(r.events[1]).toEqual({ type: 'gambitDrawn', seat: 0, cardId: S19 });
+    expect(r.board.zones.graveyard).toEqual([S19]);
+    expect(r.board.zones.stacks).toEqual(s.board.zones.stacks);
+  });
+
+  it('RD-175 does not apply to a nested best-effort spell: S-01 with an empty deck still runs', () => {
+    // Every other card is in seat 1's hand, so the deck is empty; the graveyard holds only S-01.
+    const S01 = spell(1);
+    const stacks: [CardId[], CardId[]] = [[R1, R2], [B1]];
+    const rest = ALL_SORTED.filter((c) => c !== S19 && c !== S01 && !stacks.flat().includes(c));
+    const s = gambit([S01], stacks, [S19], rest);
+    expect(s.board.zones.deck).toEqual([]);
     const { state, events } = apply(s, 0, ps(S19));
-    expect(types(events)).toEqual(['spellPlayed', 'gambitDrawn', 'spellResolved']);
-    expect(events[0]).toEqual({ type: 'spellPlayed', seat: 0, cardId: S19, branch: 'primary' });
-    expect(events[1]).toEqual({ type: 'gambitDrawn', seat: 0, cardId: S19 });
-    expect(state.board.zones.graveyard).toEqual([S19]);
-    expect(state.board.zones.stacks).toEqual(s.board.zones.stacks);
-    expect(state.phase).toEqual(s.phase);
-    expect(state.playedThisTurn).toBe(true);
+    expect(events).toContainEqual({
+      type: 'spellPlayed',
+      seat: 1,
+      cardId: S01,
+      branch: 'primary',
+      playedVia: S19,
+    });
+    expect(state.board.zones.graveyard).toEqual(expect.arrayContaining([S01, S19]));
+    expect(state.pendingChoice).toBeUndefined();
   });
 
   it('S-19 never draws itself: it is in resolution during the draw', () => {

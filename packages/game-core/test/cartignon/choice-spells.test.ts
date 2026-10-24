@@ -22,6 +22,7 @@ import {
   ctx,
   expectReject,
   ps,
+  resolveDirect,
   rng,
   spell,
   stateOf,
@@ -117,14 +118,15 @@ describe('S-01 Foresight (RD-114, RD-116)', () => {
     expect(state.board.zones.deck).toEqual([]);
   });
 
-  it('deck empty: nothing happens (RD-48 / RD-93); the Primary still ran', () => {
-    const { state, events } = apply(foresight([]), 0, ps(spell(1)));
+  it('deck empty: no effect, so not playable (RD-175); the resolution itself does nothing', () => {
+    expectReject(foresight([]), 0, ps(spell(1)), 'SPELL_NO_EFFECT');
+    // Resolved directly (as through S-19, RD-161): the Primary runs and does nothing.
+    const { board, events, suspended } = resolveDirect(foresight([]), 0, spell(1));
     expect(types(events)).toEqual(['spellPlayed', 'cardsLookedAt', 'spellResolved']);
     expect(events[0]).toMatchObject({ branch: 'primary' });
     expect(events[1]).toEqual({ type: 'cardsLookedAt', seat: 0, cardIds: [] });
-    expect(types(events)).not.toContain('spellDrawResolved');
-    expect(state.pendingChoice).toBeUndefined();
-    expect(state.board.lookingAt).toBeUndefined();
+    expect(suspended).toBeUndefined();
+    expect(board.lookingAt).toBeUndefined();
   });
 
   it("an opponent's level 3 also counts; no level 3 -> Secondary: nerf -30", () => {

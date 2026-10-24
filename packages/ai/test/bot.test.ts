@@ -6,6 +6,7 @@ import {
   createSeededRng,
   legalMatchCommands,
   observeForSeat,
+  validateCommand,
   type CartignonMatchState,
   type Seat,
 } from '@cartignon/game-core';
@@ -148,6 +149,33 @@ describe('play cap and loop guard (ADR-0016)', () => {
         memory,
       });
       expect(isPlay(decision.command)).toBe(false);
+    }
+  });
+
+  it('never casts a spell that would have no effect (RD-175, SPELL_NO_EFFECT)', () => {
+    // Decision points where the acting seat holds a spell whose branch would do nothing.
+    const noEffect = decisionPoints(1)
+      .filter(({ match }) => match.round.pendingChoice === undefined)
+      .flatMap(({ match, seat }) => {
+        const dead = match.round.board.zones.hands[seat].filter((cardId) => {
+          const check = validateCommand(ctx, match.round, seat, { type: 'playSpell', cardId });
+          return !check.ok && check.code === 'SPELL_NO_EFFECT';
+        });
+        return dead.length > 0 ? [{ match, seat, dead }] : [];
+      })
+      .slice(0, 6);
+    expect(noEffect.length).toBeGreaterThan(0);
+    for (const { match, seat, dead } of noEffect) {
+      for (const level of BOT_LEVELS) {
+        const { command } = decideFromRequest(ctx, request(level, match, seat));
+        expect(command.type === 'playSpell' && dead.includes(command.cardId)).toBe(false);
+      }
+      for (const cardId of dead) {
+        expect(legalMatchCommands(ctx, match, seat)).not.toContainEqual({
+          type: 'playSpell',
+          cardId,
+        });
+      }
     }
   });
 

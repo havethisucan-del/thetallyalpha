@@ -61,6 +61,12 @@ describe('spell verdict (RD-171 hint)', () => {
     expect(spellVerdict(null)).toBeNull();
   });
 
+  it('shows a spell whose effect would do nothing as blocked (RD-175)', () => {
+    const blocked: SpellHint = { branch: 'secondary', castable: false, reason: 'SPELL_NO_EFFECT' };
+    expect(spellVerdict(blocked)).toBe('blocked');
+    expect(VERDICT_TEXT.blocked.text).toBe('No effect now — cannot be played');
+  });
+
   it('carries a symbol and words, never colour alone', () => {
     expect(VERDICT_TEXT.met).toEqual({ mark: '✓', text: 'Condition met — Primary fires' });
     expect(VERDICT_TEXT.unmet).toEqual({

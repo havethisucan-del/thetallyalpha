@@ -666,8 +666,8 @@
       "kind": "spell",
       "name": "Gambit Prism",
       "text": {
-        "condition": "None: can always be played.",
-        "primary": "Draw 1 random card from the graveyard. Creature: link it onto your Leading creature for free, ignoring Level and colour (if you have no creature on the field, it becomes your Base). Spell: your opponent plays it at once, for free, as its caster. Its condition is ignored, as much of its effect as possible happens, a turn-ending effect ends the current turn, and a trap is armed on their side.",
+        "condition": "There is at least 1 card in the graveyard.",
+        "primary": "Draw 1 random card from the graveyard. Creature: link it onto your Leading creature for free, ignoring Level and colour (if you have no creature on the field, it becomes your Base). Spell: your opponent plays it at once, for free, as its caster. Its condition is ignored, as much of its effect as possible happens, and a trap is armed on their side.",
         "secondary": "None."
       },
       "secondary": {

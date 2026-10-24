@@ -95,6 +95,28 @@ export function withNegatedModifiers(board: Board, negated: Board['negatedModifi
     : { ...rest, negatedModifiers: negated };
 }
 
+/**
+ * RD-175: whether `runSecondary(spec)` would change anything on `board` for `caster` (pure, no
+ * side effects). `board` must be the board the spell resolves on (the spell out of the hand).
+ * - buffOwnLeader / nerfEnemyLeader: the target Leading creature exists (RD-115: else no-op).
+ * - draw: the source pile is not empty (RD-48 / RD-23 / RD-93: a short pile still draws what it
+ *   has, so only an empty one draws nothing). Deck and graveyard are shared piles.
+ * - none: never an effect (RD-119).
+ */
+export function secondaryHasEffect(board: Board, caster: Seat, spec: SecondarySpec): boolean {
+  const opponent: Seat = caster === 0 ? 1 : 0;
+  switch (spec.kind) {
+    case 'none':
+      return false;
+    case 'buffOwnLeader':
+      return board.zones.stacks[caster].length > 0;
+    case 'nerfEnemyLeader':
+      return board.zones.stacks[opponent].length > 0;
+    case 'draw':
+      return (spec.from === 'deck' ? board.zones.deck : board.zones.graveyard).length > 0;
+  }
+}
+
 /** RD-115: runs a Secondary with fixed targets through `k`; a missing target does nothing. */
 export function runSecondary(k: SpellKernel, spec: SecondarySpec): void {
   switch (spec.kind) {

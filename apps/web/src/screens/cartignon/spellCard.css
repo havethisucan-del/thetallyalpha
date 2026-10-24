@@ -109,8 +109,14 @@
   color: var(--paper);
   font-size: 4.4cqw;
 }
-.spell-card[data-verdict='unmet'] .spell-verdict {
+.spell-card[data-verdict='unmet'] .spell-verdict,
+.spell-card[data-verdict='blocked'] .spell-verdict {
   border-style: dashed;
+}
+/* RD-175: neither effect would do anything, so both fade and none is highlighted. */
+.spell-card[data-verdict='blocked'] .spell-pri,
+.spell-card[data-verdict='blocked'] .spell-sec {
+  opacity: 0.4;
 }
 
 /* The effect that would fire is highlighted as a box, the same way for both branches (user

@@ -32,13 +32,13 @@ describe('self-play with the real catalog (R5b)', () => {
   }
 
   // RQ-34: accepted by the user 2026-10-19 (no per-turn play limit; the RD-25 clock bounds it).
-  it('documents a rules gap: two Grave Draw spells can be swapped forever within one turn', () => {
-    // Seed 54 (seed 330 until RD-172 / RD-173 changed the trajectories; seed 13 before the
-    // xoshiro128** RNG, ADR-0009), eager without a play budget: the active seat alternates S-02
-    // and S-03, each drawing the other back from the graveyard before landing there itself
-    // (spells.ts: the spent spell goes to the graveyard after resolving), so hand, deck and
-    // graveyard sizes never change. Nothing bounds plays per turn (RD-13, RD-83); only RD-25's
-    // turn clock would. If a rule change bounds this, update this test.
+  it('the S-02 / S-03 Grave Draw swap loop is closed by RD-175', () => {
+    // Seed 54, eager without a play budget, used to hit the step cap in round 1 (one turn): the
+    // active seat alternated S-02 and S-03, each drawing the other back from the graveyard. S-02
+    // ran its Secondary (buff own Leading) without an own Leading creature, i.e. did nothing and
+    // went to the graveyard. RD-175 (2026-10-24) makes such a no-effect spell unplayable, so the
+    // loop is gone (no stepCap in seeds 1..1500 when this was written). A loop of two Grave Draw
+    // Secondaries with an effect (each drawing the other back) stays possible in theory (RQ-34).
     const r = playMatch({
       seed: 54,
       policy: 'eager',
@@ -46,10 +46,7 @@ describe('self-play with the real catalog (R5b)', () => {
       maxSteps: 3_000,
       traceTail: 4,
     });
-    expect(r.end).toBe('stepCap');
-    expect(r.rounds).toBe(0);
-    expect(r.trace.map((t) => t.spellId).sort()).toEqual(['S-02', 'S-02', 'S-03', 'S-03']);
-    expect(new Set(r.trace.map((t) => `${t.roundNumber}:${t.turnNumber}`)).size).toBe(1);
+    expect(r.end).not.toBe('stepCap');
   });
 
   // Regression for RQ-33 (found by R5b self-play, fixed 2026-10-19). Seed 1591, random policy: in

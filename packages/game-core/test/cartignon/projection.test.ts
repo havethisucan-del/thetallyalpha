@@ -61,6 +61,7 @@ describe('spell hints (private view)', () => {
         [cr('violet', 1), cr('violet', 2), spell(3)],
       ],
       stacks: STACKS,
+      graveyard: [cr('green', 1)], // RD-175: S-02's Primary gains something
     });
     const own = projectCartignonPrivate(ctx, matchOf(s), 0);
     expect(own.spellHints).toEqual([
@@ -81,7 +82,11 @@ describe('spell hints (private view)', () => {
 
   it('matches what the resolution actually fires', () => {
     for (const opp of [[], [cr('violet', 1)], [cr('violet', 1), cr('violet', 2)]]) {
-      const s = stateOf({ hands: [[spell(2), cr('red', 5)], opp], stacks: STACKS });
+      const s = stateOf({
+        hands: [[spell(2), cr('red', 5)], opp],
+        stacks: STACKS,
+        graveyard: [cr('green', 1)],
+      });
       const hint = projectCartignonPrivate(ctx, matchOf(s), 0).spellHints[0];
       const played = apply(s, 0, ps(spell(2))).events[0];
       expect(played).toMatchObject({ type: 'spellPlayed', branch: hint?.branch });
@@ -113,6 +118,32 @@ describe('spell hints (private view)', () => {
     const s = stateOf({ hands: [[spell(2)], []], stacks: STACKS });
     expect(projectCartignonPrivate(ctx, matchOf(s, true), 0).spellHints).toEqual([
       expect.objectContaining({ castable: false, reason: 'MATCH_OVER' }),
+    ]);
+  });
+
+  it('RD-175: a Secondary with no effect is reported as not castable (SPELL_NO_EFFECT)', () => {
+    // Equal hands -> S-02 Secondary (buff own Leading); seat 0 has no stack -> no effect.
+    const s = stateOf({
+      hands: [[spell(2), cr('red', 5)], [cr('violet', 1)]],
+      stacks: [[], [cr('blue', 1)]],
+    });
+    const own = projectCartignonPrivate(ctx, matchOf(s), 0);
+    expect(own.spellHints).toEqual([
+      { cardId: spell(2), branch: 'secondary', castable: false, reason: 'SPELL_NO_EFFECT' },
+    ]);
+    expect(own.legal).not.toContainEqual(ps(spell(2)));
+    expect(cartignonPrivateViewSchema.safeParse(own).success).toBe(true);
+    // A feasible Primary with an effect is castable, even when the Secondary would have no target.
+    const primary = stateOf({
+      hands: [
+        [spell(2), cr('red', 5)],
+        [cr('violet', 1), cr('violet', 2)],
+      ],
+      stacks: [[], [cr('blue', 1)]],
+      graveyard: [cr('green', 1)],
+    });
+    expect(projectCartignonPrivate(ctx, matchOf(primary), 0).spellHints).toEqual([
+      { cardId: spell(2), branch: 'primary', castable: true, reason: null },
     ]);
   });
 });

@@ -20,6 +20,7 @@ import {
   cr,
   ctx,
   expectReject,
+  resolveDirect,
   ps,
   rng,
   spell,
@@ -86,10 +87,13 @@ describe('S-02 (RD-102): hand difference draws from the graveyard', () => {
     expect(creatureAtk(ctx.cards, state.board, cr('red', 2))).toBe(50);
   });
 
-  it('an empty graveyard keeps the Primary feasible; it just draws nothing (RD-93)', () => {
+  it('an empty graveyard keeps the Primary feasible but unplayable (RD-93, RD-175)', () => {
     const s = stateOf({ hands: [[spell(2)], [cr('violet', 1), cr('violet', 2)]], stacks: STACKS });
     expect(s.board.zones.graveyard).toEqual([]);
-    const { events } = apply(s, 0, ps(spell(2)));
+    // RD-175: the caster would gain nothing (the opponent's draw alone does not count).
+    expectReject(s, 0, ps(spell(2)), 'SPELL_NO_EFFECT');
+    // Resolved directly (as through S-19): the Primary still runs and draws nothing.
+    const { events } = resolveDirect(s, 0, spell(2));
     expect(events[0]).toMatchObject({ branch: 'primary' });
     expect(drawn(events)).toEqual([
       [0, 'spellGraveyard', 0],
@@ -135,13 +139,15 @@ describe('S-02 (RD-102): hand difference draws from the graveyard', () => {
     ]);
   });
 
-  it('empty graveyard: requested 2, drawn 0 is reported; the opponent still draws 1', () => {
+  it('empty graveyard (resolved directly): requested 2, drawn 0; the opponent still draws 1', () => {
     const s = stateOf({
       hands: [[spell(2)], [cr('violet', 1), cr('violet', 2), cr('violet', 3)]],
       stacks: STACKS,
     });
     expect(s.board.zones.graveyard).toEqual([]);
-    const { state, events } = apply(s, 0, ps(spell(2)));
+    // Not playable (RD-175); resolved as through S-19 to check the reporting.
+    const { board, events } = resolveDirect(s, 0, spell(2));
+    const state = { board };
     expect(events[0]).toMatchObject({ type: 'spellPlayed', seat: 0, branch: 'primary' });
     expect(events.filter((e) => e.type === 'spellDrawResolved')).toEqual([
       { type: 'spellDrawResolved', seat: 0, from: 'graveyard', requested: 2, drawn: 0 },
@@ -189,10 +195,15 @@ describe('S-03 (RD-107): stack swap', () => {
       [own, opp.slice(0, 2)],
       [own.slice(0, 2), opp.slice(0, 2)],
     ] as const) {
-      const s = stateOf({ hands: [[spell(3)], []], stacks: [[...stacks[0]], [...stacks[1]]] });
+      // RD-175: a non-empty graveyard, else the Secondary would draw nothing (unplayable).
+      const s = stateOf({
+        hands: [[spell(3)], []],
+        stacks: [[...stacks[0]], [...stacks[1]]],
+        graveyard: [cr('green', 1)],
+      });
       const { state, events } = apply(s, 0, ps(spell(3)));
       expect(events[0]).toMatchObject({ branch: 'secondary' });
-      expect(drawn(events)).toEqual([[0, 'spellGraveyard', 0]]);
+      expect(drawn(events)).toEqual([[0, 'spellGraveyard', 1]]);
       expect(state.board.zones.stacks).toEqual(stacks);
     }
   });
@@ -717,18 +728,31 @@ describe('RD-133: copied Buff/Nerf behave like a positional modifier of the carr
     expect(types(r.events)).toContain('copiedModifierDiscarded');
   });
 
-  it('caster already armed: the Primary still runs, Link Up stays single, no Secondary', () => {
+  it('caster already armed: no effect, so not playable (RD-175); resolved: Link Up stays single', () => {
     const s = stateOf({
       hands: [[spell(6)], []],
       stacks: [own, [cr('violet', 1), cr('violet', 2), cr('orange', 3)]],
       board: { linkUpPending: [true, false] },
     });
-    const { state, events } = apply(s, 0, ps(spell(6)));
+    expectReject(s, 0, ps(spell(6)), 'SPELL_NO_EFFECT');
+    // Resolved directly (as through S-19): the Primary runs, no Secondary, nothing changes.
+    const { board, events } = resolveDirect(s, 0, spell(6));
     expect(types(events)).toEqual(['spellPlayed', 'modifierCopied', 'spellResolved']);
     expect(events[0]).toMatchObject({ branch: 'primary' });
-    expect(state.board.linkUpPending).toEqual([true, false]);
-    expect(state.board.attachedEffects).toEqual([]);
-    expect(state.board.zones.graveyard).toContain(spell(6));
+    expect(board.linkUpPending).toEqual([true, false]);
+    expect(board.attachedEffects).toEqual([]);
+    expect(board.zones.graveyard).toContain(spell(6));
+  });
+
+  it('RD-175: a copied draw from an empty pile has no effect, so S-06 is not playable', () => {
+    // orange-3 at position 2 carries drawGrave there (copied by S-06 when it is live).
+    const c = createRoundContext(catalogWithModifiers([['orange', 3, ['buffSelf', 'drawGrave']]]));
+    const stacks: [CardId[], CardId[]] = [own, [cr('violet', 1), cr('violet', 2), cr('orange', 3)]];
+    const empty = stateOf({ hands: [[spell(6)], []], stacks });
+    expect(empty.board.zones.graveyard).toEqual([]);
+    expect(legalCommands(c, empty, 0)).not.toContainEqual(ps(spell(6)));
+    const one = stateOf({ hands: [[spell(6)], []], stacks, graveyard: [cr('green', 1)] });
+    expect(legalCommands(c, one, 0)).toContainEqual(ps(spell(6)));
   });
 
   it('a copied Link Up belongs to the carrier and lapses with it (RD-139)', () => {

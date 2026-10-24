@@ -8,6 +8,7 @@ import {
   createRoundContext,
   createZones,
   legalCommands,
+  resolveSpell,
   type Board,
   type CardCatalog,
   type CardId,
@@ -63,6 +64,11 @@ export interface StateOpts {
   readonly stacks?: readonly [CardId[], CardId[]];
   /** Explicit deck (top first); every unplaced card then goes to the graveyard. */
   readonly deck?: CardId[];
+  /**
+   * Explicit graveyard (with no explicit `deck`): these cards start in the graveyard and every
+   * other unplaced card goes to the deck.
+   */
+  readonly graveyard?: CardId[];
   readonly phase?: RoundPhase;
   readonly p1?: Seat;
   readonly playedThisTurn?: boolean;
@@ -78,11 +84,12 @@ export function stateOf(o: StateOpts): RoundState {
     ...o.hands[0],
     ...o.hands[1],
     ...(o.deck ?? []),
+    ...(o.graveyard ?? []),
   ]);
   const rest = CATALOG_ORDER.filter((c) => !used.has(c));
   const board = createBoard({
     deck: o.deck ?? rest,
-    graveyard: o.deck === undefined ? [] : rest,
+    graveyard: o.deck === undefined ? (o.graveyard ?? []) : [...(o.graveyard ?? []), ...rest],
     hands: [o.hands[0], o.hands[1]],
     stacks: [stacks[0], stacks[1]],
   });
@@ -169,6 +176,20 @@ export function expectReject(
   expect(applyCommand(ctx, state, seat, command, rng())).toMatchObject({ ok: false, code });
   expect(JSON.stringify(state)).toBe(before);
   expect(legalCommands(ctx, state, seat)).not.toContainEqual(command);
+}
+
+/**
+ * RD-175: resolves `cardId` straight through `resolveSpell` (no play check), as the S-19
+ * best-effort path and a defensive caller would: the card leaves `seat`'s hand first.
+ */
+export function resolveDirect(state: RoundState, seat: Seat, cardId: CardId, seed = 1) {
+  const hands = state.board.zones.hands;
+  const hand = hands[seat].filter((c) => c !== cardId);
+  const board: Board = {
+    ...state.board,
+    zones: { ...state.board.zones, hands: seat === 0 ? [hand, hands[1]] : [hands[0], hand] },
+  };
+  return resolveSpell(ctx.cards, board, seat, cardId, rng(seed), state.turnLocks ?? []);
 }
 
 export function types(events: readonly RoundEvent[]): string[] {

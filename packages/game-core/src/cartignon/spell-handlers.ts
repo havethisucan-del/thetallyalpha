@@ -37,6 +37,14 @@ export interface SpellHandler {
    */
   readonly feasible: (view: SpellView) => boolean;
   /**
+   * RD-175: consulted only by the play check (`spellHasEffect`), and only when `feasible` is true:
+   * false when the Primary would change nothing on this board (no draw, placement, ATK or stack
+   * change, trap armed), so the spell cannot be played (`SPELL_NO_EFFECT`). It never changes the
+   * branch and is not used in the resolution or in best-effort mode (S-19, RD-161). Absent = the
+   * feasible Primary always has an effect.
+   */
+  readonly hasEffect?: (view: SpellView) => boolean;
+  /**
    * The Primary (ADR-0007 `run`), through kernel primitives only. Runs only when `feasible` was
    * true. Returns undefined when done, or a `SpellChoiceRequest` to yield a choice (R4c-2); the
    * spell layer then calls `resume` with the answer (automatically for a single legal answer).
@@ -121,6 +129,9 @@ function handDifference(view: SpellView): number {
  */
 const S02: SpellHandler = {
   feasible: (v) => handDifference(v) >= 1,
+  // RD-175: the caster gains only through the graveyard draw; with an empty graveyard the
+  // opponent's deck draw alone does not count as an effect (user 2026-10-24).
+  hasEffect: (v) => v.board.zones.graveyard.length > 0,
   primary: (k) => {
     const d = handDifference(k);
     const count = d >= 2 ? 2 : d === 1 ? 1 : 0;
@@ -186,6 +197,22 @@ const S06: SpellHandler = {
   feasible: (v) =>
     activeModifierOf(v.cards, v.board, v.opponent) !== null &&
     leadingCreature(v.board, v.caster) !== undefined,
+  // RD-175: a copied draw from an empty pile, or a Link Up while one is already armed (RD-51 /
+  // RD-133), changes nothing. Copied buffSelf / nerfEnemyLeader always attach to the caster's
+  // Leading creature (required by `feasible`).
+  hasEffect: (v) => {
+    const live = activeModifierOf(v.cards, v.board, v.opponent);
+    switch (live?.kind) {
+      case 'linkUp':
+        return !v.board.linkUpPending[v.caster];
+      case 'drawDeck':
+        return v.board.zones.deck.length > 0;
+      case 'drawGrave':
+        return v.board.zones.graveyard.length > 0;
+      default:
+        return true;
+    }
+  },
   primary: (k) => {
     const live = activeModifierOf(k.cards, k.board, k.opponent);
     if (live !== null) k.fireCopiedModifier(live.kind, live.cardId);
@@ -244,6 +271,8 @@ const S01: SpellHandler = {
     stackCreaturesWhere(v, v.caster, (l) => l === 3).length +
       stackCreaturesWhere(v, v.opponent, (l) => l === 3).length >
     0,
+  // RD-175: an empty deck leaves nothing to look at or keep.
+  hasEffect: (v) => v.board.zones.deck.length > 0,
   primary: (k) => {
     const looked = k.lookAtDeck(S01_LOOK_COUNT);
     if (looked.length === 0) return undefined; // Zero options: the step is skipped.
@@ -577,7 +606,8 @@ const TRAP: SpellHandler = {
 /**
  * S-19 Gambit Prism: always playable; draws 1 random card from the graveyard (kernel
  * `drawRandomFromGraveyard`: round RNG, revealed, in no zone). The S-19 card itself is in
- * resolution, so it can never draw itself (RD-158). Empty graveyard: nothing happens.
+ * resolution, so it can never draw itself (RD-158). Empty graveyard: nothing would happen, so it
+ * cannot be played then (RD-175).
  * - Creature (RD-108, RD-120): placed on the caster's stack ignoring level and colour, as a normal
  *   placement (modifier activates, an armed Link Up is used up, the opponent's traps may trigger,
  *   RD-152); with no creature of the caster's on the field it becomes the Base.
@@ -586,6 +616,8 @@ const TRAP: SpellHandler = {
  */
 const S19: SpellHandler = {
   feasible: () => true,
+  // RD-175: an empty graveyard draws nothing (the card itself is in resolution, RD-158).
+  hasEffect: (v) => v.board.zones.graveyard.length > 0,
   primary: (k) => {
     const drawn = k.drawRandomFromGraveyard();
     if (drawn === undefined) return undefined;

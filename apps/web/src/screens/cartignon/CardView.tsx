@@ -167,15 +167,15 @@ export function SpellHintBadge({
 }
 
 /**
- * Selected state (R8c): a 3px ring in the turn colour (offset so it reads on every swatch) plus a
- * "Selected" label, so colour is never the only signal. A ring, not an outline, so the global
+ * Selected state (R8c): a 3px ring in the turn colour (offset so it reads on every swatch), plus
+ * the lift on a hand card or a "Selected" label on a choice tile, so colour is never the only signal. A ring, not an outline, so the global
  * focus-visible outline stays visible on a selected card.
  */
 export const selectedRingClass = 'ring-3 ring-turn ring-offset-2 ring-offset-paper';
 
 /**
- * Decorative "Selected" label straddling the top edge of a selected card (text, no glyph; the
- * control's state carries the meaning for assistive tech).
+ * Decorative "Selected" label straddling the top edge of a selected choice tile (text, no glyph;
+ * the control's state carries the meaning for assistive tech). Hand cards do not use it.
  */
 export function CheckBadge() {
   return (
@@ -191,7 +191,8 @@ export function CheckBadge() {
 
 /**
  * A hand card as a toggle button (R8c tap-select): `aria-pressed` carries the selected state, the
- * accessible name is the card's name. The card itself is larger than the 44px target minimum.
+ * accessible name is the card's name. No "Selected" label: the lift plus the ring already mark it
+ * without relying on colour. The card itself is larger than the 44px target minimum.
  */
 export function SelectableCard({
   card,
@@ -220,7 +221,6 @@ export function SelectableCard({
       data-selected={selected ? 'true' : 'false'}
     >
       <CardView card={card} hint={hint} />
-      {selected && <CheckBadge />}
     </button>
   );
 }

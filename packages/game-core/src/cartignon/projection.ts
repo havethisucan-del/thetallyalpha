@@ -164,7 +164,8 @@ export interface CartignonPrivateView {
  * - `castable`: `playSpell` with this card is legal right now (own turn, no pending choice, not the
  *   P1 Base step, RD-83).
  * - `reason`: the rejection code when not castable (e.g. `NOT_YOUR_TURN`, `NOT_ALLOWED_IN_PHASE`,
- *   `CHOICE_PENDING`, `SPELL_NOT_SUPPORTED`, `MATCH_OVER`), else null.
+ *   `CHOICE_PENDING`, `SPELL_NOT_SUPPORTED`, `SPELL_NO_EFFECT` (RD-175: the branch would do
+ *   nothing), `MATCH_OVER`), else null.
  * `branch` is reported even when not castable (it is what would fire on the current board).
  */
 export interface SpellHint {

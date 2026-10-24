@@ -36,6 +36,7 @@ import {
   resolvingCardIds,
   resumeSpell,
   spellEntry,
+  spellHasEffect,
   type SpellEvent,
   type SpellOutcome,
 } from './spells.js';
@@ -72,7 +73,8 @@ import {
  * was played this turn -> the round ends with the tie-break (`equalStall`, RD-19); otherwise the
  * turn passes. The turn timeout (RD-33) uses the same evaluation. No spell ends the turn (RD-172).
  *
- * Spells (R4c, spells.ts): `playSpell` in every phase except `p1Base` (RD-83); the player stays on
+ * Spells (R4c, spells.ts): `playSpell` in every phase except `p1Base` (RD-83), and only when its
+ * branch would have an effect (RD-175, `SPELL_NO_EFFECT`); the player stays on
  * turn and the phase does not change (RD-14; RD-172: no spell ends the turn); it counts
  * as a play (`playedThisTurn`, RD-88). A stack emptied by a spell takes a new mid-round Base on its
  * owner's next play (RD-105).
@@ -325,6 +327,11 @@ export type RoundErrorCode =
   | 'NOT_A_SPELL'
   /** The spell's handler belongs to a later milestone (ADR-0007; see `SPELL_REGISTRY`). */
   | 'SPELL_NOT_SUPPORTED'
+  /**
+   * RD-175: the spell's Primary is infeasible and its Secondary would do nothing (no Leading
+   * target, an empty draw pile, or `none`).
+   */
+  | 'SPELL_NO_EFFECT'
   | 'LEVEL_NOT_NEXT'
   | 'STACK_EMPTY'
   | 'NULLIFY_COLOR_MISMATCH'
@@ -607,7 +614,7 @@ function checkNullify(ctx: RoundContext, state: RoundState, seat: Seat, cardId: 
 }
 
 function checkPlaySpell(ctx: RoundContext, state: RoundState, seat: Seat, cardId: CardId): Check {
-  // RD-83: spells are always playable except in P1's Base step (creature only, RD-63).
+  // RD-83: spells are playable in every phase except P1's Base step (creature only, RD-63).
   if (state.phase.kind === 'p1Base') {
     return reject('NOT_ALLOWED_IN_PHASE', 'only a creature may be played in the P1 Base step');
   }
@@ -617,9 +624,18 @@ function checkPlaySpell(ctx: RoundContext, state: RoundState, seat: Seat, cardId
     return reject('CARD_NOT_IN_HAND', `${cardId} is not in seat ${seat}'s hand`);
   }
   if (def.kind !== 'spell') return reject('NOT_A_SPELL', `${cardId} is not a spell`);
-  // RD-14 / RD-119: a supported spell is always playable (Primary or Secondary).
   if (!isSpellSupported(def)) {
     return reject('SPELL_NOT_SUPPORTED', `spell ${def.defId} is not implemented yet`);
+  }
+  // RD-175 (user, 2026-10-24; revises RD-14 / RD-119 "always playable"): a spell whose branch
+  // (Primary or Secondary, the same `feasible` the resolution uses) would do nothing cannot be
+  // played, so no card is thrown away for no effect.
+  const locked = (state.turnLocks ?? []).filter((l) => l.seat === seat).map((l) => l.cardId);
+  if (!spellHasEffect(ctx.cards, state.board, seat, cardId, locked)) {
+    return reject(
+      'SPELL_NO_EFFECT',
+      `${def.defId}: its Secondary (${def.secondary.kind}) would have no effect now`,
+    );
   }
   return OK;
 }

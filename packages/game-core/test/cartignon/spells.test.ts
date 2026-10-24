@@ -75,19 +75,25 @@ describe('playSpell legality (RD-14, RD-83, RD-88, RD-115)', () => {
     expectReject(s, 1, ps(spell(2)), 'NOT_YOUR_TURN');
   });
 
-  it('a supported spell is always offered, with one command per spell (no targets, RD-115)', () => {
+  it('offers one command per spell with an effect (no targets, RD-115, RD-175)', () => {
     // R4c-5: every spell is supported (S-19 included); SPELL_NOT_SUPPORTED remains for catalogs
     // with spells ahead of their handlers.
-    const supported = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
-    // Both stacks empty: every Secondary target is missing, still playable (RD-119).
+    const all = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
+    // Both stacks empty, empty graveyard, full deck: every infeasible Primary falls to a Secondary,
+    // and only the deck-draw Secondaries (S-04, S-08, S-17) have an effect; the traps (S-12, S-16)
+    // arm. S-19's Primary would draw from the empty graveyard: no effect (RD-175, like the rest).
     const s = stateOf({
-      hands: [supported.map(spell), []],
+      hands: [all.map(spell), []],
       phase: { kind: 'p2Opening', active: 0 },
       p1: 1,
     });
+    const playable = [4, 8, 12, 16, 17];
     expect(legalCommands(ctx, s, 0).filter((c) => c.type === 'playSpell')).toEqual(
-      supported.map((n) => ps(spell(n))),
+      playable.map((n) => ps(spell(n))),
     );
+    for (const n of all.filter((x) => !playable.includes(x))) {
+      expectReject(s, 0, ps(spell(n)), 'SPELL_NO_EFFECT');
+    }
   });
 
   it('counts as a play (RD-88); Mulligan and End Turn stay available (RD-169)', () => {
@@ -102,21 +108,77 @@ describe('playSpell legality (RD-14, RD-83, RD-88, RD-115)', () => {
   });
 
   it('RQ-33 / RD-169: in P2 opening, End Turn stays legal after spells (no deadlock)', () => {
-    // P2 (seat 1) holds two spells and no creature; the deck is empty, so no Mulligan and the
-    // deck-draw Secondaries of S-04 / S-08 draw nothing (RD-48).
+    // P2 (seat 1) holds two spells and no creature; the deck is empty, so no Mulligan, and S-08's
+    // deck-draw Secondary would draw nothing (RD-175: not playable).
     const base = stateOf({
-      hands: [[], [spell(4), spell(8)]],
-      stacks: [[cr('yellow', 3)], []],
+      hands: [[], [spell(14), spell(8)]],
+      stacks: [[cr('yellow', 5)], []],
       deck: [],
       phase: { kind: 'p2Opening', active: 1 },
     });
-    const one = apply(base, 1, ps(spell(4))).state;
-    // S-08 is still playable, but spells no longer block the escape (RQ-33).
-    expect(legalCommands(ctx, one, 1)).toEqual([ps(spell(8)), END]);
-    const two = apply(one, 1, ps(spell(8))).state;
-    expect(legalCommands(ctx, two, 1)).toEqual([END]);
-    const ended = apply(two, 1, END).state;
+    expect(legalCommands(ctx, base, 1)).toEqual([ps(spell(14)), END]);
+    expectReject(base, 1, ps(spell(8)), 'SPELL_NO_EFFECT');
+    const one = apply(base, 1, ps(spell(14))).state; // Secondary: nerf yellow-5 by 30
+    // Spells no longer block the escape (RQ-33).
+    expect(legalCommands(ctx, one, 1)).toEqual([END]);
+    const ended = apply(one, 1, END).state;
     expect(ended.phase).toMatchObject({ kind: 'roundOver', reason: 'opponentAhead', seat: 1 });
+  });
+});
+
+describe('RD-175: a spell whose branch would do nothing cannot be played', () => {
+  it('buffOwnLeader Secondary without an own Leading creature (S-02, S-05, S-09, S-13, S-15)', () => {
+    // Enemy blue-5 only (S-13 needs level 1-4, S-15 a 125 lead); seat 0 holds no creature.
+    const buffs = [2, 5, 9, 13, 15];
+    const s = stateOf({ hands: [buffs.map(spell), []], stacks: [[], [cr('blue', 5)]] });
+    for (const n of buffs) expectReject(s, 0, ps(spell(n)), 'SPELL_NO_EFFECT');
+    expect(legalCommands(ctx, s, 0).some((c) => c.type === 'playSpell')).toBe(false);
+    expect(legalCommands(ctx, s, 0)).toContainEqual(END);
+  });
+
+  it('nerfEnemyLeader Secondary without an enemy Leading creature (S-01, S-06, S-14)', () => {
+    const s = stateOf({
+      hands: [[spell(1), spell(6), spell(14)], []],
+      stacks: [[cr('red', 1)], []],
+    });
+    for (const n of [1, 6, 14]) expectReject(s, 0, ps(spell(n)), 'SPELL_NO_EFFECT');
+  });
+
+  it('the same Secondaries are castable once their target exists', () => {
+    const s = stateOf({ hands: [[spell(14), spell(15)], []], stacks: STACKS });
+    expect(legalCommands(ctx, s, 0)).toEqual(
+      expect.arrayContaining([ps(spell(14)), ps(spell(15))]),
+    );
+    const { events } = apply(s, 0, ps(spell(15)));
+    expect(events[0]).toMatchObject({ type: 'spellPlayed', branch: 'secondary' });
+  });
+
+  it('a feasible Primary is always an effect, whatever the Secondary (S-02, S-19 none)', () => {
+    // S-02: d = 2 - 0 >= 1 -> Primary, although its buff Secondary would have no target.
+    // S-19's Secondary is `none`, but its Primary is always feasible (RD-119) and has an effect
+    // with a card in the graveyard.
+    const s = stateOf({
+      hands: [
+        [spell(2), spell(19)],
+        [cr('violet', 1), cr('violet', 2), cr('violet', 3)],
+      ],
+      stacks: [[], []],
+      graveyard: [cr('green', 1)],
+    });
+    expect(legalCommands(ctx, s, 0)).toEqual(expect.arrayContaining([ps(spell(2)), ps(spell(19))]));
+  });
+});
+
+describe('RD-175: a feasible Primary that would change nothing cannot be played', () => {
+  it('S-02: d >= 1 but an empty graveyard gains the caster nothing; one grave card is enough', () => {
+    const hands: [CardId[], CardId[]] = [[spell(2)], [cr('violet', 1)]]; // d = 1 - 0
+    // Deck full, graveyard empty: the opponent's deck draw alone does not count (RD-175).
+    const empty = stateOf({ hands, stacks: STACKS });
+    expect(empty.board.zones.graveyard).toEqual([]);
+    expectReject(empty, 0, ps(spell(2)), 'SPELL_NO_EFFECT');
+    // One card in the graveyard.
+    const one = stateOf({ hands, stacks: STACKS, graveyard: [cr('green', 1)] });
+    expect(legalCommands(ctx, one, 0)).toContainEqual(ps(spell(2)));
   });
 });
 
@@ -184,13 +246,10 @@ describe('resolution (RD-14, RD-119): Primary or Secondary, then graveyard or at
     });
   });
 
-  it('a Secondary with a missing fixed target does nothing; the spell goes to the graveyard', () => {
-    // Seat 1 has no creature: S-14's nerf has no target (RD-115).
+  it('RD-175: a Secondary with a missing fixed target makes the spell unplayable', () => {
+    // Seat 1 has no creature: S-14's nerf has no target (RD-115), so it cannot be cast.
     const s = stateOf({ hands: [[spell(14)], []], stacks: [[cr('red', 1)], []] });
-    const { state, events } = apply(s, 0, ps(spell(14)));
-    expect(types(events)).toEqual(['spellPlayed', 'spellResolved']);
-    expect(state.board.zones.graveyard).toEqual([spell(14)]);
-    expect(state.board.attachedEffects).toEqual([]);
+    expectReject(s, 0, ps(spell(14)), 'SPELL_NO_EFFECT');
   });
 });
 
@@ -323,12 +382,9 @@ describe('draw primitives (RD-23, RD-48, RD-93; RD-77 corrected: no in-round cap
     });
   });
 
-  it('empty deck: nothing is drawn (RD-48)', () => {
+  it('empty deck: a deck-draw Secondary would draw nothing, so it is unplayable (RD-48, RD-175)', () => {
     const empty = stateOf({ hands: [[spell(8)], []], stacks: STACKS, deck: [] });
-    const { state, events } = apply(empty, 0, ps(spell(8)));
-    expect(state.board.zones.hands[0]).toEqual([]);
-    expect(state.board.zones.graveyard).toContain(spell(8));
-    expect(events).toContainEqual(expect.objectContaining({ requested: 1, drawn: 0 }));
+    expectReject(empty, 0, ps(spell(8)), 'SPELL_NO_EFFECT');
   });
 
   it('graveyard draw: shuffled before every draw, seeded; the spell cannot draw itself', () => {
@@ -356,13 +412,16 @@ describe('draw primitives (RD-23, RD-48, RD-93; RD-77 corrected: no in-round cap
     expect(JSON.stringify(apply(s, 0, ps(spell(2)), 7))).toBe(JSON.stringify({ state, events }));
   });
 
-  it('graveyard runs short: draws what is there, nothing from an empty graveyard (RD-93)', () => {
+  it('empty graveyard: a grave-draw Secondary is unplayable; one card is enough (RD-93, RD-175)', () => {
     const s = stateOf({ hands: [[spell(3)], []], stacks: STACKS });
     expect(s.board.zones.graveyard).toEqual([]);
-    const { state, events } = apply(s, 0, ps(spell(3))); // S-03 infeasible -> grave draw 1
-    expect(state.board.zones.hands[0]).toEqual([]);
+    expectReject(s, 0, ps(spell(3)), 'SPELL_NO_EFFECT'); // S-03 infeasible -> grave draw 1
+    // One card in the graveyard: the draw has an effect and takes it.
+    const one = stateOf({ hands: [[spell(3)], []], stacks: STACKS, graveyard: [cr('red', 3)] });
+    expect(one.board.zones.graveyard).toEqual([cr('red', 3)]);
+    const { state } = apply(one, 0, ps(spell(3)));
+    expect(state.board.zones.hands[0]).toEqual([cr('red', 3)]);
     expect(state.board.zones.graveyard).toEqual([spell(3)]);
-    expect(events).toContainEqual(expect.objectContaining({ type: 'spellDrawResolved', drawn: 0 }));
   });
 
   it('graveyard draw can take a hand above 9', () => {

@@ -1,6 +1,7 @@
 import type { BotLevel } from '@cartignon/ai';
 import { lazy, Suspense, useCallback, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { PageLayout, TableLayout } from './components/AppLayout';
+import { DeckScreen } from './deck/DeckScreen';
 import type { OnlineParts } from './online/OnlineApp';
 import { HomeScreen } from './screens/HomeScreen';
 import { MatchScreen } from './screens/MatchScreen';
@@ -33,7 +34,7 @@ applyStoredPalette();
 const OnlineApp =
   import.meta.env.MODE !== 'static' ? lazy(() => import('./online/OnlineApp')) : null;
 
-type MenuScreen = 'home' | 'play';
+type MenuScreen = 'home' | 'play' | 'deck';
 
 /** The online section while its chunk loads (the bot option never waits for it). */
 const LOADING_ONLINE: OnlineParts = {
@@ -167,6 +168,10 @@ export function App() {
     setMenu('play');
   }, [solo]);
 
+  const showDeck = useCallback(() => {
+    setMenu('deck');
+  }, []);
+
   const startTutorial = useCallback(() => {
     setSolo({ kind: 'tutorial', match: new TutorialMatch() });
   }, []);
@@ -208,9 +213,23 @@ export function App() {
     if (menu === 'home') {
       return (
         <HomeScreen
-          items={[{ id: 'play', label: 'Play', onSelect: onMenuPlay }]}
+          items={[
+            { id: 'play', label: 'Play', onSelect: onMenuPlay },
+            { id: 'deck', label: 'Deck', onSelect: showDeck },
+          ]}
           onReplayTutorial={startTutorial}
         />
+      );
+    }
+    if (menu === 'deck') {
+      return (
+        <PageLayout statusBar={online?.statusBar} onReplayTutorial={startTutorial}>
+          <DeckScreen
+            onBack={() => {
+              setMenu('home');
+            }}
+          />
+        </PageLayout>
       );
     }
     return (

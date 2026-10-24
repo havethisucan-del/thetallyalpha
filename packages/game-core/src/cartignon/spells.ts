@@ -14,6 +14,7 @@ import {
 import {
   createSpellKernel,
   runSecondary,
+  secondaryHasEffect,
   type KernelCarry,
   type PlacementSettler,
   type SpellKernel,
@@ -31,6 +32,8 @@ import { findCard, type CardId, type Zones } from './zones.js';
  *      drawn back by its own effects nor counted as a hand card (RD-116).
  *   2. `feasible` of its registry handler is evaluated on that board. True -> the Primary runs;
  *      otherwise the Secondary (`SpellDef.secondary`) runs; `none` does nothing (RD-119).
+ *      RD-175: playing a spell whose branch (Primary or Secondary) would have no effect is
+ *      rejected up front (`spellHasEffect`, round.ts `SPELL_NO_EFFECT`).
  *   3. If the spell attached an ATK effect to a creature that is still on a stack, the spell card
  *      is attached to it (`Board.attachedSpells`, RD-12); otherwise it goes to the graveyard.
  *      This holds for the Secondary too (RD-153). A stack-level effect (S-15, RD-134) does not
@@ -247,6 +250,29 @@ export function spellBranch(
   const opponent: Seat = seat === 0 ? 1 : 0;
   const view = { cards, board: inResolution(board, seat, cardId), caster: seat, opponent, locked };
   return handler.feasible(view) ? 'primary' : 'secondary';
+}
+
+/**
+ * RD-175: whether playing `cardId` now would have any effect, on the same board `spellBranch` uses
+ * (the spell out of the hand, RD-116). The branch is chosen exactly as in the resolution
+ * (`feasible`); then a Primary has an effect unless its handler's `hasEffect` says otherwise (e.g.
+ * S-19 with an empty graveyard), and a Secondary needs a target / a non-empty source
+ * (`secondaryHasEffect`). Pure; the card must be a supported spell in `seat`'s hand (checked by the
+ * caller). Only the play check uses it: not traps that lapse (not played by choice) nor spells
+ * played through S-19 (best-effort, RD-161), whose resolution is unchanged.
+ */
+export function spellHasEffect(
+  cards: CardIndex,
+  board: Board,
+  seat: Seat,
+  cardId: CardId,
+  locked: readonly CardId[] = [],
+): boolean {
+  const { def, handler } = supportedHandler(cards, cardId);
+  const opponent: Seat = seat === 0 ? 1 : 0;
+  const view = { cards, board: inResolution(board, seat, cardId), caster: seat, opponent, locked };
+  if (handler.feasible(view)) return handler.hasEffect?.(view) ?? true;
+  return secondaryHasEffect(view.board, seat, def.secondary);
 }
 
 /**

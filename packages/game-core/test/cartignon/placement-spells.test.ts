@@ -459,7 +459,12 @@ describe('S-18 Mutual Withdrawal (RD-119, RD-172)', () => {
       [[], [B1, B2]],
       [[R1], [B1, B2]],
     ] as const) {
-      const s = stateOf({ hands: [[spell(18)], []], stacks: [[...stacks[0]], [...stacks[1]]] });
+      // RD-175: a non-empty graveyard, else the Secondary would draw nothing (unplayable).
+      const s = stateOf({
+        hands: [[spell(18)], []],
+        stacks: [[...stacks[0]], [...stacks[1]]],
+        graveyard: [G5],
+      });
       const { state, events } = apply(s, 0, ps(spell(18)), 1);
       expect(events[0]).toMatchObject({ branch: 'secondary' });
       expect(state.phase).toEqual(s.phase);
@@ -516,8 +521,14 @@ describe('RD-143: a spell that touched P1 stack bans Nullify for the round', () 
 
   it("a spell that leaves P1's stack alone does not set the flag", () => {
     const s = stateOf({
-      hands: [[cr('red', 4)], [spell(2), nullifier]],
+      // P1 holds one card more than P2 (without the spell): S-02's Primary is feasible (RD-175: its
+      // Secondary would have no target, P2 has no stack).
+      hands: [
+        [cr('red', 4), cr('red', 5)],
+        [spell(2), nullifier],
+      ],
       stacks: [[R1], []],
+      graveyard: [G5], // RD-175: S-02's graveyard draw needs a card
       phase: { kind: 'p2Opening', active: 1 },
     });
     const { state } = apply(s, 1, ps(spell(2)));

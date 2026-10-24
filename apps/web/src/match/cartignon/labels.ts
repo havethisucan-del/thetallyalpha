@@ -203,6 +203,8 @@ const REJECTION_TEXT: Readonly<Record<string, string>> = {
   ILLEGAL: 'That move is not allowed right now.',
   // RD-173: in the P2 opening a card that can Nullify may only Nullify.
   NULLIFY_REQUIRED: 'This card can nullify, so Nullify is its only option.',
+  // RD-175: a spell whose effect would do nothing cannot be cast.
+  SPELL_NO_EFFECT: 'This spell would have no effect right now, so it cannot be cast.',
 };
 
 export interface Announcement {
@@ -342,6 +344,9 @@ const SPELL_REASON_TEXT: Readonly<Record<string, string>> = {
   MATCH_OVER: 'The match is over.',
   ROUND_OVER: 'The round is over.',
   CARD_REPLAY_LOCKED: 'This card cannot be played again this turn.',
+  // RD-175: the effect that would fire has nothing to act on (no Leading creature, empty pile).
+  SPELL_NO_EFFECT:
+    'Its effect would do nothing right now (no Leading creature to target, or no card to draw).',
 };
 
 /** Readable text of a spell-hint rejection code; unknown codes are shown as they are. */
