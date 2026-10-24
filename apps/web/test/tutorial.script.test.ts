@@ -5,7 +5,7 @@ import { commandToAction } from '../src/lib/cartignon';
 import { buildTutorial } from '../src/tutorial/buildTutorial';
 import { TUTORIAL_SCRIPT } from '../src/tutorial/script';
 import { TutorialMatch } from '../src/tutorial/tutorialMatch';
-import { MAX_STEP_TEXT, type TutorialSection } from '../src/tutorial/types';
+import { MAX_STEP_TEXT, SPELL_PARTS, type TutorialSection } from '../src/tutorial/types';
 
 /** ADR-0018: the shipped script plays to its end on the real engine and catalog. */
 
@@ -20,7 +20,6 @@ function scriptDefIds(): string[] {
     if ('defId' in command) ids.push(command.defId);
   }
   for (const step of steps) {
-    if (step.anatomy) ids.push(step.anatomy.defId);
     if (step.zoom) ids.push(step.zoom.defId);
     if (step.gate.kind === 'command' && 'defId' in step.gate.command) {
       ids.push(step.gate.command.defId);
@@ -92,15 +91,29 @@ describe('tutorial script', () => {
     expect(state.round.board.zones.hands[0]).toHaveLength(9);
   });
 
-  it('zooms only minions of the own hand', () => {
+  it('zooms only cards of the own hand, with a part of their kind, and highlights them', () => {
     const built = buildTutorial();
-    const hand = new Set(TUTORIAL_SCRIPT.preset.hands[0]);
+    // The dealt hand, and the cards the Mulligan draws (the spell is one of them).
+    const hand = new Set([
+      ...TUTORIAL_SCRIPT.preset.hands[0],
+      ...(TUTORIAL_SCRIPT.mulliganDraw?.defIds ?? []),
+    ]);
+    const spellParts: readonly string[] = SPELL_PARTS;
     for (const step of TUTORIAL_SCRIPT.steps) {
-      const defId = step.zoom?.defId;
-      if (defId === undefined) continue;
-      expect(hand.has(defId), step.id).toBe(true);
-      expect(built.catalog.find((d) => d.defId === defId)?.kind, step.id).toBe('creature');
+      const zoom = step.zoom;
+      if (zoom === undefined) continue;
+      expect(hand.has(zoom.defId), step.id).toBe(true);
+      expect(step.targets, step.id).toContain(`card:${zoom.defId}`);
+      const kind = built.catalog.find((d) => d.defId === zoom.defId)?.kind;
+      const isSpellPart = spellParts.includes(zoom.part);
+      expect(kind, step.id).toBe(isSpellPart ? 'spell' : 'creature');
     }
+    // The spell is read part by part: Condition, Primary, Secondary.
+    expect(
+      TUTORIAL_SCRIPT.steps.flatMap((s) =>
+        s.zoom && spellParts.includes(s.zoom.part) ? [s.zoom.part] : [],
+      ),
+    ).toEqual(['condition', 'primary', 'secondary']);
   });
 
   it('plays to the end on script: round and token won by seat 0, match over', async () => {

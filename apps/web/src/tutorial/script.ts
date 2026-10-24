@@ -21,7 +21,8 @@ import type { TutorialScript } from './types';
  *             + C-C4 green L4 176, position 2 = ▲ nerf on your Leader (C-B3's buff silenced)
  *             bot 32 + 91 + 176 = 299; you 76 + (64 + 30 - 30) = 140. End Turn (ahead)
  *   you       S-15 Underdog's Stand: Condition "opponent >= 125 ahead" holds (159), so the
- *             Primary: -50 on the bot's whole stack -> 249
+ *             Primary: -50 on the bot's whole stack -> 249 (the Secondary, +30 on your Leader,
+ *             fires only when the Condition fails; it is explained, not played)
  *             + C-D4 blue L4 177, position 2 = + buff; C-D3's buff silenced, the nerf moves to
  *             C-D4: 76 + 64 + (177 + 30 - 30) = 317 vs 249. End Turn (ahead)
  *   bot       no Level 5 in hand: End Turn while behind -> you win the round (RD-169)
@@ -162,20 +163,36 @@ export const TUTORIAL_SCRIPT: TutorialScript = {
       targets: ['their-stack', 'my-atk', 'their-atk'],
       gate: { kind: 'continue' },
     },
+    // The spell, enlarged in place like the minion: Condition -> Primary -> Secondary, then cast.
     {
-      id: 'combat-spell-read',
+      id: 'combat-spell-condition',
       section: 'combat',
-      text: 'This spell is in your hand. If its Condition holds when cast, the Primary fires; if not, the Secondary does.',
+      text: 'This spell is in your hand. Its Condition is checked when you cast it: is the opponent 125 or more ahead? It is 159 ahead: yes.',
       targets: ['card:S-15'],
-      anatomy: { defId: 'S-15', part: 'condition' },
+      zoom: { defId: 'S-15', part: 'condition' },
+      gate: { kind: 'continue' },
+    },
+    {
+      id: 'combat-spell-primary',
+      section: 'combat',
+      text: 'If the Condition holds, the Primary fires: the bot’s whole stack gets −50 ATK until the end of the round.',
+      targets: ['card:S-15'],
+      zoom: { defId: 'S-15', part: 'primary' },
+      gate: { kind: 'continue' },
+    },
+    {
+      id: 'combat-spell-secondary',
+      section: 'combat',
+      text: 'If it does not hold, the Secondary fires instead: your Leader gets +30 ATK until the end of the round. Only one of them fires.',
+      targets: ['card:S-15'],
+      zoom: { defId: 'S-15', part: 'secondary' },
       gate: { kind: 'continue' },
     },
     {
       id: 'combat-spell',
       section: 'combat',
-      text: 'The bot is 159 ahead, at least 125: the Condition holds, so the Primary fires, −50 on its stack. Cast it.',
+      text: 'The Condition holds, so the Primary will fire. Select the spell and cast it.',
       targets: ['card:S-15', 'card-actions'],
-      anatomy: { defId: 'S-15', part: 'primary' },
       gate: { kind: 'command', command: { type: 'playSpell', defId: 'S-15' } },
     },
     {

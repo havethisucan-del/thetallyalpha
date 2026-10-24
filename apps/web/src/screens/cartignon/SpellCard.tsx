@@ -1,4 +1,12 @@
-import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import { createPortal } from 'react-dom';
 import '@fontsource/jaini/latin-400.css';
 import bannerUrl from '../../assets/cards/Banner.svg';
@@ -26,7 +34,8 @@ import './spellCard.css';
  * (`SPELL_NAME_SMALL_CQW`), plus the optional `footer` (the hint band). Enlarged (hover, keyboard
  * focus, touch long-press or double tap; `useCardPreview`): the full text and, with a hint, the verdict chip; the
  * effect that would fire stays full strength, the other fades. The enlarged copy is decorative
- * (`aria-hidden`); the card's accessible name carries the name and the hint.
+ * (`aria-hidden`); the card's accessible name carries the name and the hint. A tutorial zoom
+ * (`ZOOM_ATTRIBUTE`) draws the full text on the card itself, without a verdict.
  */
 
 const BANNER_MASK = `url("${bannerUrl}")`;
@@ -36,6 +45,7 @@ export function SpellFace({
   full = false,
   verdict = null,
   footer,
+  fitFrom = SPELL_BODY_CQW,
   className = '',
 }: {
   text: SpellText;
@@ -44,6 +54,8 @@ export function SpellFace({
   verdict?: SpellVerdict | null;
   /** Table size only: a band under the name (the spell hint). */
   footer?: ReactNode;
+  /** Enlarged card: the body size (`cqw`) the fit starts from and shrinks down from. */
+  fitFrom?: number;
   className?: string;
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -59,7 +71,7 @@ export function SpellFace({
       const size = shrinkToFit((fs) => {
         body.style.setProperty('--spell-fs', `${fs}cqw`);
         return body.scrollHeight <= body.clientHeight;
-      });
+      }, fitFrom);
       body.style.setProperty('--spell-fs', `${size}cqw`);
       body.dataset['fs'] = String(size);
     };
@@ -68,7 +80,7 @@ export function SpellFace({
     return () => {
       active = false;
     };
-  }, [full, text, verdict]);
+  }, [full, text, verdict, fitFrom]);
 
   return (
     <div
@@ -113,6 +125,40 @@ export function SpellFace({
   );
 }
 
+/**
+ * ADR-0018: the tutorial enlarges a hand card in place by setting this attribute on its
+ * `data-card-id` element (`TutorialOverlay`); the value names the part of the face it rings.
+ */
+export const ZOOM_ATTRIBUTE = 'data-tutorial-zoom';
+
+/**
+ * Body size a zoomed spell's fit starts from (`cqw`): larger than the preview's, since the card is
+ * smaller on screen than the preview and its free space is otherwise left empty.
+ */
+const ZOOM_BODY_CQW = 8;
+
+/**
+ * The tutorial zoom on `ref` (the attribute's value), or null. A zoomed spell shows its full text
+ * in place, since the table-size face carries only the name.
+ */
+function useZoomAttribute(ref: RefObject<HTMLElement | null>): string | null {
+  const [zoom, setZoom] = useState<string | null>(null);
+  useEffect(() => {
+    const element = ref.current;
+    if (!element || typeof MutationObserver === 'undefined') return;
+    const read = () => {
+      setZoom(element.getAttribute(ZOOM_ATTRIBUTE));
+    };
+    read();
+    const observer = new MutationObserver(read);
+    observer.observe(element, { attributes: true, attributeFilter: [ZOOM_ATTRIBUTE] });
+    return () => {
+      observer.disconnect();
+    };
+  }, [ref]);
+  return zoom;
+}
+
 /** A spell at table size with its enlarged preview. */
 export function SpellCard({
   card,
@@ -137,7 +183,9 @@ export function SpellCard({
   tapPreview?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const placement = useCardPreview(ref, preview, SPELL_PREVIEW_WIDTH, tapPreview);
+  const zoomed = useZoomAttribute(ref) !== null;
+  // Zoomed (tutorial): the full text on the card itself, no hover copy on top of it.
+  const placement = useCardPreview(ref, preview && !zoomed, SPELL_PREVIEW_WIDTH, tapPreview);
 
   return (
     <>
@@ -151,7 +199,12 @@ export function SpellCard({
         data-card-id={card.cardId}
         data-spell-verdict={verdict ?? undefined}
       >
-        <SpellFace text={text} verdict={verdict} footer={footer} className="rounded-md" />
+        {zoomed ? (
+          // All three parts at full strength (no verdict fade): the tutorial explains each.
+          <SpellFace text={text} full fitFrom={ZOOM_BODY_CQW} className="rounded-md" />
+        ) : (
+          <SpellFace text={text} verdict={verdict} footer={footer} className="rounded-md" />
+        )}
       </div>
       {placement &&
         createPortal(

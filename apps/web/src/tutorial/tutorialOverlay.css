@@ -76,6 +76,34 @@
     --tutorial-zoom-scale: 2.1;
   }
 }
+/* A zoomed spell shows its full text (SpellCard): larger, so the body reads at about the size of
+   the hover preview (SPELL_PREVIEW_WIDTH 240px): ~245px wide on desktop, ~215px on a phone. */
+.ct-hand
+  .ct-hand-card:has(
+    [data-tutorial-zoom='condition'],
+    [data-tutorial-zoom='primary'],
+    [data-tutorial-zoom='secondary']
+  ) {
+  --tutorial-zoom-scale: 3.1;
+}
+@media (max-width: 639px) {
+  .ct-hand
+    .ct-hand-card:has(
+      [data-tutorial-zoom='condition'],
+      [data-tutorial-zoom='primary'],
+      [data-tutorial-zoom='secondary']
+    ) {
+    --tutorial-zoom-scale: 3.6;
+  }
+}
+/* The hand card is a button (centred text): the body reads left-aligned like the preview, and the
+   label underline stays thin although the card is scaled up. */
+[data-tutorial-zoom] .spell-body {
+  text-align: left;
+}
+[data-tutorial-zoom] .spell-body b {
+  text-decoration-thickness: 0.07em;
+}
 [data-tutorial-zoom] {
   box-shadow: 0 6px 14px rgb(33 26 18 / 0.35);
   border-radius: 0.375rem;
@@ -90,28 +118,28 @@
 [data-tutorial-zoom='level'] .minion-lvl,
 [data-tutorial-zoom='colour'] .minion-box,
 [data-tutorial-zoom='modifiers'] .minion-mods,
-[data-part='condition'] .spell-cond,
-[data-part='primary'] .spell-pri,
-[data-part='secondary'] .spell-sec {
+[data-tutorial-zoom='condition'] .spell-cond,
+[data-tutorial-zoom='primary'] .spell-pri,
+[data-tutorial-zoom='secondary'] .spell-sec {
   outline: 2.5cqw solid var(--ui-turn);
   outline-offset: 1cqw;
   border-radius: 2cqw;
   animation: tutorial-ring 1.6s ease-in-out infinite;
 }
-/* Text lines of the spell face read on a pale wash, so the ring sits inside the body. */
-[data-part='condition'] .spell-cond,
-[data-part='primary'] .spell-pri,
-[data-part='secondary'] .spell-sec {
-  outline-width: 2px;
-  outline-offset: 1px;
+/* Text lines of the spell face read on a pale wash, so the ring sits inside the body (thinner:
+   the spell card is scaled more than a minion). */
+[data-tutorial-zoom='condition'] .spell-cond,
+[data-tutorial-zoom='primary'] .spell-pri,
+[data-tutorial-zoom='secondary'] .spell-sec {
+  outline-width: 1cqw;
+  outline-offset: 0.6cqw;
   background: color-mix(in srgb, var(--ui-turn) 14%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {
   [data-tutorial-highlight],
   .tutorial-note,
-  [data-tutorial-zoom] *,
-  [data-part] * {
+  [data-tutorial-zoom] * {
     animation: none;
   }
   .ct-hand .ct-hand-card:has([data-tutorial-zoom]) .ct-hand-lift {

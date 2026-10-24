@@ -81,6 +81,14 @@ async function playThrough(page: Page): Promise<string[]> {
         1,
       );
     }
+    // The spell is enlarged the same way, with its full text on the card, and stays uncovered.
+    if (step === 'combat-spell-secondary') {
+      const spell = page.locator('[data-testid="hand"] [data-tutorial-zoom="secondary"]');
+      await expect(spell).toHaveCount(1);
+      await expect(spell.locator('.spell-sec')).toBeVisible();
+      await expect(page.getByTestId('card-preview')).toHaveCount(0);
+      await expectUncovered(overlay, spell);
+    }
     // The table's own outcome card never competes with the coach.
     await expect(page.getByTestId('outcome')).toHaveCount(0);
     if (await continueButton.isVisible()) {
@@ -119,7 +127,15 @@ test.describe('tutorial', () => {
 
     const steps = await playThrough(page);
     expect(steps[0]).toBe('welcome');
-    for (const id of ['flow-mulligan', 'flow-nullify', 'flow-base', 'combat-spell']) {
+    for (const id of [
+      'flow-mulligan',
+      'flow-nullify',
+      'flow-base',
+      'combat-spell-condition',
+      'combat-spell-primary',
+      'combat-spell-secondary',
+      'combat-spell',
+    ]) {
       expect(steps).toContain(id);
     }
     expect(steps.at(-1)).toBe('goal-done');

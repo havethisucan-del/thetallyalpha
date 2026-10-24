@@ -145,16 +145,18 @@ export function SpellHintBadge({
     hint.branch === 'primary'
       ? 'bg-turn text-on-turn'
       : hint.branch === 'secondary'
-        ? 'bg-hint-secondary text-on-hint-secondary'
+        ? // Dark ink on amber reads lighter than Primary's light-on-blue: normal tracking and a
+          // hairline stroke in the text's own ink stand in for the bold Jaini does not have.
+          'bg-hint-secondary text-on-hint-secondary [-webkit-text-stroke:0.35px_currentColor]'
         : onPaper
           ? 'border-dashed text-[#1c1917]'
           : 'border-dashed text-ink';
   return (
     <span
       aria-hidden="true"
-      className={`relative z-3 block shrink-0 overflow-hidden whitespace-nowrap rounded-b-sm border-t-(length:--line-width) border-line px-px text-center font-sans text-[10px] font-bold leading-4 tracking-tight ${look} ${className} ${
-        hint.castable ? '' : 'line-through decoration-2'
-      }`}
+      className={`relative z-3 block shrink-0 overflow-hidden whitespace-nowrap rounded-b-sm border-t-(length:--line-width) border-line px-px text-center font-sans text-[10px] font-bold leading-4 ${
+        hint.branch === 'secondary' ? '' : 'tracking-tight'
+      } ${look} ${className} ${hint.castable ? '' : 'line-through decoration-2'}`}
       data-testid="spell-hint"
       data-branch={hint.branch ?? 'none'}
       data-castable={hint.castable ? 'true' : 'false'}

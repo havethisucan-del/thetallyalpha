@@ -7,8 +7,7 @@ import {
   type RefObject,
 } from 'react';
 import { buttonClass } from '../components/ui';
-import { spellText } from '../match/cartignon/spellArt';
-import { SpellFace } from '../screens/cartignon/SpellCard';
+import { ZOOM_ATTRIBUTE } from '../screens/cartignon/SpellCard';
 import { findTargets, targetSelector } from './targets';
 import type { TutorialMatch } from './tutorialMatch';
 import { SECTION_TITLES, type TutorialState } from './types';
@@ -17,11 +16,11 @@ import './tutorialOverlay.css';
 /**
  * ADR-0018: the coach panel over the match table, a paper note on the manuscript tokens
  * (`tutorialOverlay.css`). It reads the coach state and the (gated) match snapshot from
- * `TutorialMatch`, shows the step text (polite live region), the full spell face on spell
- * anatomy steps, Continue / Finish / Skip, and marks the step's highlight targets with
- * `data-tutorial-highlight` (resolved through `targets.ts`). On card steps (`step.zoom`) the
- * hand card itself is enlarged in place: it gets `data-tutorial-zoom="<part>"`, and
- * `tutorialOverlay.css` lifts it out of the fan and rings that part of its face. Persisting the outcome
+ * `TutorialMatch`, shows the step text (polite live region), Continue / Finish / Skip, and marks
+ * the step's highlight targets with `data-tutorial-highlight` (resolved through `targets.ts`). On
+ * card steps (`step.zoom`) the hand card itself is enlarged in place: it gets
+ * `data-tutorial-zoom="<part>"`, and `tutorialOverlay.css` lifts it out of the fan and rings that
+ * part of its face (a zoomed spell draws its full text, `SpellCard`). Persisting the outcome
  * (`markTutorial`) and leaving the match are the caller's job (`onFinish` / `onSkip`).
  *
  * Placement: right of the table's central column (hands, stacks) when the viewport leaves room
@@ -41,7 +40,7 @@ export interface TutorialOverlayProps {
 }
 
 export const HIGHLIGHT_ATTRIBUTE = 'data-tutorial-highlight';
-export const ZOOM_ATTRIBUTE = 'data-tutorial-zoom';
+export { ZOOM_ATTRIBUTE };
 
 export type CoachPlacement = 'top' | 'bottom' | 'side';
 
@@ -281,21 +280,6 @@ const PLACEMENT_CLASS: Readonly<Record<CoachPlacement, string>> = {
   side: 'right-4 top-[60px] w-64 max-h-[calc(100dvh-76px)]',
 };
 
-/** Spell steps: the full face (Condition / Primary / Secondary), `part` ringed (CSS). */
-function AnatomyCard({ state }: { state: TutorialState }) {
-  const anatomy = state.step.anatomy;
-  if (anatomy === undefined) return null;
-  const text = spellText(anatomy.defId);
-  if (text === null) return null;
-  return (
-    <div className="flex justify-center" data-testid="tutorial-anatomy" data-part={anatomy.part}>
-      <div className="w-32 sm:w-44">
-        <SpellFace text={text} full />
-      </div>
-    </div>
-  );
-}
-
 const smallButton = 'min-h-11 px-3 text-base';
 
 export function TutorialOverlay({ tutorial, onSkip, onFinish }: TutorialOverlayProps) {
@@ -375,7 +359,6 @@ export function TutorialOverlay({ tutorial, onSkip, onFinish }: TutorialOverlayP
         className="flex min-h-0 flex-col gap-2 overflow-y-auto overscroll-contain"
         hidden={collapsed}
       >
-        <AnatomyCard state={state} />
         <p aria-live="polite" className="text-lg leading-snug" data-testid="tutorial-text">
           {state.step.text}
         </p>

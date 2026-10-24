@@ -730,3 +730,12 @@
 .ct-token .cartignon-token-face {
   box-shadow: 0 0 0 var(--line-halo-width) var(--line-halo);
 }
+
+/* Phone widths: the table cards are small (60px and less), so the full 2px ink edge of a card face
+   eats the Level / ATK corner. Card faces on the table use a 1px line there (edge, ATK box line,
+   hint band rule); everything else keeps the one UI line weight. */
+@media (max-width: 639px) {
+  .ct-field .card-edge {
+    --line-width: 1px;
+  }
+}
