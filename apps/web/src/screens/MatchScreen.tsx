@@ -1,6 +1,6 @@
 import type { ActionMessage, ActionResultMessage, MatchViewMessage } from '@cartignon/protocol';
-import { useMemo, useState, type ReactNode } from 'react';
-import { ThemeToggle } from '../components/ThemeToggle';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { GearIcon, SettingsDialog } from '../components/Settings';
 import { alertClass, buttonClass, cardClass } from '../components/ui';
 import type { BoardModel } from '../match/board';
 import { LeaveConfirmDialog } from '../match/LeaveConfirmDialog';
@@ -8,6 +8,7 @@ import { shouldConfirmLeave } from '../match/leaveConfirm';
 import { PhaserBoard } from '../match/PhaserBoard';
 import type { MatchSnapshot } from '../net/matchSource';
 import { commandToAction, rendererFor } from '../lib/cartignon';
+import { usePalette } from '../settings/useSettings';
 import {
   buildMatchSummary,
   collectRoundEvents,
@@ -134,6 +135,9 @@ function CartignonMatchScreen({
   const parts = snapshot.cartignon;
   const [showDebug, setShowDebug] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const menuToggleRef = useRef<HTMLButtonElement>(null);
+  const palette = usePalette();
   // Hooks run before the early return below; the clock ticks only while it changes over time.
   const clock = useClock(snapshot.clock, snapshot.clockReceivedAt, view?.seat ?? null);
   // Round results for the end-of-match summary, kept beyond the rolling event log's cap. Adjusting
@@ -175,7 +179,7 @@ function CartignonMatchScreen({
   const showNotices = snapshot.error || (summary && !hideOutcome);
 
   // Full-window layout (TableLayout gives this screen the whole viewport): the table fills it,
-  // with the corner menu (theme, debug, leave) floating top right and the event log icon under
+  // with the corner menu (settings, debug, leave) floating top right and the event log icon under
   // it (CartignonTable); the debug view replaces the table and scrolls.
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
@@ -185,10 +189,23 @@ function CartignonMatchScreen({
           {phase}
         </span>
       </p>
-      <TableMenu status={statusBar}>
+      <TableMenu status={statusBar} toggleRef={menuToggleRef}>
         {(close) => (
           <>
-            <ThemeToggle className="justify-start" />
+            {/* Settings open over the running match (theme, card colours); nothing is left. */}
+            <button
+              type="button"
+              className={`${toolbarButtonClass} gap-1.5`}
+              aria-haspopup="dialog"
+              onClick={() => {
+                close();
+                setSettingsOpen(true);
+              }}
+              data-testid="settings-open"
+            >
+              <GearIcon />
+              Settings
+            </button>
             {/* The event log is its own corner icon on the table (LogCorner). */}
             <button
               type="button"
@@ -219,6 +236,13 @@ function CartignonMatchScreen({
           </>
         )}
       </TableMenu>
+      <SettingsDialog
+        open={settingsOpen}
+        onClose={() => {
+          setSettingsOpen(false);
+        }}
+        returnFocusRef={menuToggleRef}
+      />
       <LeaveConfirmDialog
         open={confirmLeave && shouldConfirmLeave(snapshot)}
         onLeave={onHome}
@@ -258,6 +282,7 @@ function CartignonMatchScreen({
           log={narrateEvents(snapshot.eventLog, parts.public, view.seat)}
           eventLog={snapshot.eventLog}
           notices={showNotices ? notices : null}
+          palette={palette}
           {...(opponentLabel === undefined ? {} : { opponentLabel })}
           onCommand={(command) => {
             onAction(commandToAction(command));

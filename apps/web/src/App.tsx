@@ -7,6 +7,7 @@ import { MatchScreen } from './screens/MatchScreen';
 import { PlayScreen } from './screens/PlayScreen';
 import type { MatchSource } from './net/matchSource';
 import { botLabel, LocalMatch } from './solo/localMatch';
+import { applyStoredPalette } from './settings/palette';
 import { applyStoredTheme } from './theme/theme';
 import {
   markTutorial,
@@ -18,8 +19,9 @@ import { TutorialOverlay } from './tutorial/TutorialOverlay';
 // Jaini is the UI font everywhere (index.css --font-sans), not only on the card faces.
 import '@fontsource/jaini/latin-400.css';
 
-// The stored light/dark choice is on <html> before the first render.
+// The stored light/dark choice and card palette are on <html> before the first render.
 applyStoredTheme();
+applyStoredPalette();
 
 /**
  * ADR-0017: the online part is a separate chunk, imported only when online play is enabled. The
@@ -204,10 +206,15 @@ export function App() {
       );
     }
     if (menu === 'home') {
-      return <HomeScreen items={[{ id: 'play', label: 'Play', onSelect: onMenuPlay }]} />;
+      return (
+        <HomeScreen
+          items={[{ id: 'play', label: 'Play', onSelect: onMenuPlay }]}
+          onReplayTutorial={startTutorial}
+        />
+      );
     }
     return (
-      <PageLayout statusBar={online?.statusBar}>
+      <PageLayout statusBar={online?.statusBar} onReplayTutorial={startTutorial}>
         <PlayScreen
           level={level}
           onLevelChange={setLevel}

@@ -1,22 +1,26 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react';
 
 /**
  * The small corner menu of the full-window match (top right): one 44px button that opens a short
- * column of items (theme, debug, leave; the event log has its own icon, `LogCorner`). Disclosure pattern: `aria-expanded` on the button,
+ * column of items (settings, debug, leave; the event log has its own icon, `LogCorner`). Disclosure pattern: `aria-expanded` on the button,
  * the items stay in the DOM while closed (`hidden`). Escape or a press outside closes it; Escape
  * returns focus to the button. Optional `status` (online connection) sits left of the button.
  */
 export function TableMenu({
   status = null,
+  toggleRef,
   children,
 }: {
   status?: ReactNode;
+  /** Optional ref to the menu button (e.g. to return focus there after a dialog closes). */
+  toggleRef?: RefObject<HTMLButtonElement | null>;
   /** The items; `close` closes the menu (call it after an item that changes the view). */
   children: (close: () => void) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const ownButtonRef = useRef<HTMLButtonElement>(null);
+  const buttonRef = toggleRef ?? ownButtonRef;
   const panelId = useId();
 
   useEffect(() => {

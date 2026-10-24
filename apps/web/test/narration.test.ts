@@ -2,6 +2,12 @@ import type { CartignonPublicView, CartignonSeatEvent } from '@cartignon/protoco
 import { describe, expect, it } from 'vitest';
 import type { EventLogEntry } from '../src/lib/cartignon';
 import { narrateEvents, narrationCardName } from '../src/match/cartignon/narration';
+import {
+  DRAW_NO_TOKENS,
+  RULE_BEHIND,
+  RULE_STALL,
+  RULE_TIE_BREAK,
+} from '../src/match/cartignon/roundAccount';
 
 /** Only the card tables matter for narration; the rest of the view is unused. */
 const pub = {
@@ -137,6 +143,79 @@ describe('narrateEvents', () => {
     expect(texts(entries)).toEqual([
       'Tie: your opponent ended the turn at equal ATK without playing (ATK 6 vs 6) — a tie-break decides the round.',
       'You won the round on the tie-break (ATK 9 vs 6).',
+    ]);
+  });
+
+  it('explains why the round ended under the round-end lines (same wording as the summary)', () => {
+    const behind = log([
+      { type: 'roundOver', reason: 'opponentAhead', seat: 0, atk: [41, 76] },
+      {
+        type: 'roundResolved',
+        outcome: {
+          kind: 'win',
+          winner: 1,
+          decidedBy: 'opponentAhead',
+          atk: [41, 76],
+          tieBreakIterations: 0,
+        },
+      },
+      {
+        type: 'tokenChanged',
+        change: { seat: 1, color: 'red', kind: 'stolen', leadingCardId: 'c01' },
+      },
+    ]);
+    const [over, token] = narrateEvents(behind, pub, 0);
+    expect(over?.text).toBe(
+      'You ended the turn while behind (ATK 41 vs 76) — your opponent wins the round.',
+    );
+    expect(over?.details).toEqual([
+      'You ended your turn at ATK 41 while your opponent had 76.',
+      RULE_BEHIND,
+    ]);
+    expect(token?.text).toBe('Opponent took the Red token from you.');
+    expect(token?.details).toEqual([
+      "The winner takes the token of their Leading card's colour; the loser held it, so it changed hands.",
+    ]);
+
+    const stall = log(
+      [{ type: 'roundOver', reason: 'equalStall', seat: 1, atk: [6, 6] }],
+      [
+        { type: 'tieBreakStarted', iteration: 1, atk: [6, 6] },
+        {
+          type: 'roundResolved',
+          outcome: {
+            kind: 'win',
+            winner: 0,
+            decidedBy: 'tieBreak',
+            atk: [9, 6],
+            tieBreakIterations: 1,
+          },
+        },
+      ],
+      [{ type: 'roundOver', reason: 'p1NoBase', seat: 1, atk: [0, 0] }],
+      [
+        {
+          type: 'roundResolved',
+          outcome: { kind: 'draw', reason: 'p1NoBase', atk: [0, 0], tieBreakIterations: 0 },
+        },
+      ],
+    );
+    const lines = narrateEvents(stall, pub, 0);
+    expect(lines.map((line) => line.details)).toEqual([
+      [
+        'Equal-ATK stall: your opponent ended their turn at ATK 6 vs 6 without playing a card, right after your End Turn at equal ATK.',
+        RULE_STALL,
+      ],
+      undefined,
+      [
+        RULE_TIE_BREAK,
+        'Both searched for a creature once; final ATK: you 9, opponent 6 — you win the round.',
+      ],
+      // The no-Base result is not repeated; its detail joins the round-over line.
+      [
+        'Your opponent was P1 and had no creature to play as the Base, so the round ended as a draw.',
+        DRAW_NO_TOKENS,
+      ],
     ]);
   });
 

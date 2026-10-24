@@ -1,16 +1,19 @@
 import type { ReactNode } from 'react';
 import { GAME_NAME } from '../config';
-import { ThemeToggle } from './ThemeToggle';
+import { SettingsButton } from './Settings';
 
 /**
  * Page layout for the non-match screens: header with the game name, an optional status bar and
- * the theme toggle, over a gold manuscript rule.
+ * the Settings button (theme, card colours), over a gold manuscript rule.
  */
 export function PageLayout({
   statusBar = null,
+  onReplayTutorial,
   children,
 }: {
   statusBar?: ReactNode;
+  /** Offered in Settings as "Replay tutorial" when given. */
+  onReplayTutorial?: (() => void) | undefined;
   children: ReactNode;
 }) {
   return (
@@ -19,7 +22,7 @@ export function PageLayout({
         <h1 className="text-3xl leading-none tracking-wider uppercase">{GAME_NAME}</h1>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           {statusBar}
-          <ThemeToggle />
+          <SettingsButton onReplayTutorial={onReplayTutorial} />
         </div>
       </header>
       <main>{children}</main>
@@ -29,7 +32,7 @@ export function PageLayout({
 
 /**
  * Full-window layout of a Cartignon match: no page header and no column, the table fills the
- * whole viewport (100dvw x 100dvh, no page scroll) and scales to it. The theme toggle sits in the
+ * whole viewport (100dvw x 100dvh, no page scroll) and scales to it. Settings open from the
  * match's corner menu (MatchScreen).
  */
 export function TableLayout({ children }: { children: ReactNode }) {

@@ -69,25 +69,23 @@ export const NORMAL_PALETTE: Palette = {
 };
 
 /**
- * Colorblind-safe palette from Okabe & Ito (2008), "Color Universal Design". Every hex value is
- * an original Okabe-Ito color; the palette has eight colors (including black) and no indigo or
- * violet.
- *
- * DERIVED: assigning the palette to the seven Cartignon colors is this project's own choice, not
- * part of Okabe-Ito. Orange, yellow and green map directly. Blue -> "sky blue", indigo ->
- * "blue", violet -> "reddish purple" and red -> "vermillion" are substitutions. Black is unused.
- * Intended for the future colour-blind palette toggle (colour stays the only visual cue).
+ * Colour-blind safe palette (Settings -> Card colours), used by the `data-palette="colorblind"`
+ * block in index.css. DERIVED, not a published palette: it starts from the Okabe & Ito (2008)
+ * "Color Universal Design" colours mapped to the seven Cartignon colours (orange, yellow, bluish
+ * green, sky blue, blue, reddish purple, vermillion) and was then tuned in OKLCH, each hue kept
+ * inside a window that still reads as its name, to raise the smallest pairwise OKLab distance
+ * under simulated protanopia, deuteranopia and tritanopia (Machado et al. 2009, severity 1) from
+ * 0.076 (pure Okabe-Ito: green/violet under deuteranopia) to 0.152, while every swatch keeps one
+ * ink at >= 4.5:1. All seven colours are gameplay-relevant (RD-01 counter cycle, RD-03 tokens),
+ * so every pair must stay apart; colourblind.test.ts re-checks this. Colour stays the only
+ * visual cue on cards (user decision 2026-10-22); accessible names always name the colour.
  */
 export const COLORBLIND_PALETTE: Palette = {
-  orange: { hex: '#E69F00', darkText: true, source: 'okabe-ito orange' },
-  yellow: { hex: '#F0E442', darkText: true, source: 'okabe-ito yellow' },
-  green: { hex: '#009E73', darkText: true, source: 'okabe-ito bluish green' },
-  blue: { hex: '#56B4E9', darkText: true, source: 'okabe-ito sky blue (derived mapping)' },
-  indigo: { hex: '#0072B2', darkText: false, source: 'okabe-ito blue (derived mapping)' },
-  violet: {
-    hex: '#CC79A7',
-    darkText: true,
-    source: 'okabe-ito reddish purple (derived mapping)',
-  },
-  red: { hex: '#D55E00', darkText: true, source: 'okabe-ito vermillion (derived mapping)' },
+  orange: { hex: '#e9af76', darkText: true, source: 'okabe-ito orange, tuned lighter' },
+  yellow: { hex: '#f1f22d', darkText: true, source: 'okabe-ito yellow, tuned' },
+  green: { hex: '#26917b', darkText: true, source: 'okabe-ito bluish green, tuned' },
+  blue: { hex: '#6ec9fe', darkText: true, source: 'okabe-ito sky blue, tuned' },
+  indigo: { hex: '#2e4089', darkText: false, source: 'okabe-ito blue, tuned darker' },
+  violet: { hex: '#c154fb', darkText: true, source: 'okabe-ito reddish purple, tuned violet' },
+  red: { hex: '#ff1d01', darkText: true, source: 'okabe-ito vermillion, tuned redder' },
 };

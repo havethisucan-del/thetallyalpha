@@ -1,15 +1,22 @@
 import type { CartignonPublicView, MatchViewMessage } from '@cartignon/protocol';
 import type { EventLogEntry } from '../../lib/cartignon';
 import type { Seat } from '../../lib/synthetic';
-import { CARTIGNON_COLORS, colorInfo, type CartignonColor } from './colors';
-import { roundOutcomeText } from './labels';
-import { otherSeat, outcomeView } from './tableModel';
+import { CARTIGNON_COLORS, type CartignonColor } from './colors';
+import {
+  roundDetails,
+  roundHeadline,
+  tokenMoveText,
+  type RoundAccount,
+  type RoundEnd,
+} from './roundAccount';
+import { otherSeat, outcomeView, type Side } from './tableModel';
 
 /**
  * End-of-match summary (Cartignon table): who won, how the match was decided, the final token
- * holdings and the round results, from this seat's perspective. Pure; it only re-words what the
- * view (`outcome`, `public.match`) and the event log (`roundResolved`, `tokenChanged`) already
- * say, no rules are computed here.
+ * holdings and, per round, why it was won, lost or drawn, from this seat's perspective. Pure; it
+ * only re-words what the view (`outcome`, `public.match`) and the event log (`roundOver`,
+ * `tieBreakDeckOut`, `roundResolved`, `tokenChanged`) already say (wording: `roundAccount.ts`),
+ * no rules are computed here.
  */
 
 type MatchState = CartignonPublicView['match'];
@@ -17,7 +24,12 @@ type MatchStatus = MatchState['status'];
 type MatchEndReason = Extract<MatchStatus, { kind: 'matchOver' }>['reason'];
 
 /** The event types the summary keeps from the rolling event log. */
-const ROUND_EVENT_TYPES = new Set(['roundResolved', 'tokenChanged']);
+const ROUND_EVENT_TYPES = new Set([
+  'roundOver',
+  'tieBreakDeckOut',
+  'roundResolved',
+  'tokenChanged',
+]);
 
 /**
  * The round result events this table has seen (oldest first), kept beyond the rolling event log's
@@ -55,8 +67,10 @@ export interface RoundSummary {
   /** The round number, or null when it cannot be told from the data seen. */
   round: number | null;
   result: SummaryResult;
-  /** `roundOutcomeText`, e.g. `You won the round on the tie-break (ATK 5 vs 5).` */
-  text: string;
+  /** One line, e.g. `Opponent won: you ended your turn behind (41 vs 76)` (`roundHeadline`). */
+  headline: string;
+  /** Why, step by step: what ended the round, the rule, the tie-break, the token (`roundDetails`). */
+  details: string[];
   /** The token move of the round, e.g. `You won the Orange token.`; null for a drawn round. */
   token: string | null;
 }
@@ -67,6 +81,8 @@ export interface MatchSummary {
   headline: string;
   /** How the match was decided (`public.match.status.reason`), null when the view does not say. */
   decidedBy: string | null;
+  /** The token score and match length in one line; null on a forfeit or when not known. */
+  conclusion: string | null;
   /** Final token holdings by colour. */
   tokens: { mine: CartignonColor[]; theirs: CartignonColor[]; unclaimed: CartignonColor[] };
   /** Rounds resolved in this match (a forfeit ends during an unresolved round). */
@@ -113,51 +129,74 @@ export function matchEndText(reason: MatchEndReason, winner: Seat | null, mySeat
   }
 }
 
-function tokenText(
-  change: Extract<EventLogEntry['event'], { type: 'tokenChanged' }>['change'],
-  mySeat: Seat,
-): string {
-  const token = `${colorInfo(change.color).label} token`;
-  const mine = change.seat === mySeat;
-  const who = mine ? 'You' : 'Your opponent';
-  switch (change.kind) {
-    case 'awarded':
-      return `${who} won the ${token}.`;
-    case 'stolen':
-      return `${who} took the ${token} from ${mine ? 'your opponent' : 'you'}.`;
-    case 'protected':
-      return `${who} kept the ${token}.`;
-  }
+function sideOf(seat: Seat, mySeat: Seat): Side {
+  return seat === mySeat ? 'mine' : 'theirs';
 }
 
-function roundSummaries(entries: readonly EventLogEntry[], mySeat: Seat): RoundSummary[] {
+function finish(account: RoundAccount, key: string): RoundSummary {
+  const { outcome } = account;
+  return {
+    key,
+    round: null,
+    result: outcome.kind === 'draw' ? 'draw' : outcome.winner === 'mine' ? 'win' : 'loss',
+    headline: roundHeadline(account),
+    details: roundDetails(account),
+    token: account.token === null ? null : tokenMoveText(account.token),
+  };
+}
+
+/**
+ * Pairs each `roundResolved` with the `roundOver` / `tieBreakDeckOut` before it and the
+ * `tokenChanged` after it (same step), so each round says why it was won, lost or drawn.
+ */
+export function roundSummaries(entries: readonly EventLogEntry[], mySeat: Seat): RoundSummary[] {
   const rounds: RoundSummary[] = [];
-  /** The step (revision) of the last `roundResolved`. */
-  let lastRevision: number | null = null;
+  let end: RoundEnd | null = null;
+  let deckOutBy: Side | null = null;
+  /** The last resolved round, still open for its token move (same step). */
+  let open: { account: RoundAccount; key: string; revision: number; index: number } | null = null;
   for (const entry of entries) {
     const event = entry.event;
-    if (event.type === 'roundResolved') {
-      const view = outcomeView(event.outcome, mySeat);
-      if (view === null) continue;
-      const result: SummaryResult =
-        view.kind === 'draw' ? 'draw' : view.winner === 'mine' ? 'win' : 'loss';
-      rounds.push({
-        key: entry.key,
-        round: null,
-        result,
-        text: roundOutcomeText(view),
-        token: null,
-      });
-      lastRevision = entry.revision;
+    if (event.type === 'roundOver') {
+      const atk: [number, number] = [event.atk[mySeat], event.atk[otherSeat(mySeat)]];
+      end = { reason: event.reason, endedBy: sideOf(event.seat, mySeat), atk };
+      deckOutBy = null;
+    } else if (event.type === 'tieBreakDeckOut') {
+      deckOutBy = sideOf(event.seat, mySeat);
+    } else if (event.type === 'roundResolved') {
+      const outcome = outcomeView(event.outcome, mySeat);
+      if (outcome === null) continue;
+      const account: RoundAccount = { outcome, end, deckOutBy, token: null };
+      open = { account, key: entry.key, revision: entry.revision, index: rounds.length };
+      rounds.push(finish(account, entry.key));
+      end = null;
+      deckOutBy = null;
     } else if (event.type === 'tokenChanged') {
       // The token move follows its round's `roundResolved` in the same step.
-      const last = rounds.at(-1);
-      if (last !== undefined && lastRevision === entry.revision && last.token === null) {
-        last.token = tokenText(event.change, mySeat);
+      if (open !== null && open.revision === entry.revision && open.account.token === null) {
+        const { seat, color, kind } = event.change;
+        open.account.token = { side: sideOf(seat, mySeat), color, kind };
+        rounds[open.index] = finish(open.account, open.key);
       }
     }
   }
   return rounds;
+}
+
+/**
+ * The one-line conclusion (token score and length), e.g. `You hold 4 tokens, your opponent 3,
+ * after 7 rounds.`; null on a forfeit (the decision line says it) or when the view does not say.
+ */
+function conclusionText(
+  over: Extract<MatchStatus, { kind: 'matchOver' }> | null,
+  mySeat: Seat,
+  roundsPlayed: number,
+): string | null {
+  if (over === null || FORFEIT_REASONS.has(over.reason)) return null;
+  const mine = over.tokenCounts[mySeat];
+  const theirs = over.tokenCounts[otherSeat(mySeat)];
+  const rounds = `${roundsPlayed} ${roundsPlayed === 1 ? 'round' : 'rounds'}`;
+  return `You hold ${mine} ${mine === 1 ? 'token' : 'tokens'}, your opponent ${theirs}, after ${rounds}.`;
 }
 
 /**
@@ -200,6 +239,7 @@ export function buildMatchSummary(
     result,
     headline: HEADLINE[result],
     decidedBy: over === null ? null : matchEndText(over.reason, over.winner, mySeat),
+    conclusion: conclusionText(over, mySeat, roundsPlayed),
     tokens,
     roundsPlayed,
     rounds: numbered,

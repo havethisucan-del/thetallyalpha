@@ -13,6 +13,12 @@ import {
   EMPTY_ROUND_EVENTS,
   type MatchSummary,
 } from '../src/match/cartignon/matchSummary';
+import {
+  DRAW_NO_TOKENS,
+  RULE_BEHIND,
+  RULE_STALL,
+  RULE_TIE_BREAK,
+} from '../src/match/cartignon/roundAccount';
 import { MatchSummaryPanel } from '../src/screens/cartignon/MatchSummary';
 
 type MatchState = CartignonPublicView['match'];
@@ -106,6 +112,7 @@ describe('buildMatchSummary', () => {
       result: 'win',
       headline: 'You won',
       decidedBy: 'The final round was played; the side holding more tokens wins.',
+      conclusion: 'You hold 2 tokens, your opponent 1, after 3 rounds.',
       tokens: {
         mine: ['orange', 'green'],
         theirs: ['red'],
@@ -117,21 +124,35 @@ describe('buildMatchSummary', () => {
           key: '10:0',
           round: 1,
           result: 'win',
-          text: 'You won the round: your opponent ended the turn while behind (ATK 9 vs 7).',
+          headline: 'You won: opponent ended their turn behind (9 vs 7)',
+          details: [
+            'Your opponent ended their turn at ATK 7 while you had 9.',
+            RULE_BEHIND,
+            "You won the Orange token. The winner takes the token of their Leading card's colour; it was still in the supply.",
+          ],
           token: 'You won the Orange token.',
         },
         {
           key: '20:0',
           round: 2,
           result: 'loss',
-          text: 'Your opponent won the round: you ended the turn while behind (ATK 4 vs 8).',
+          headline: 'Opponent won: you ended your turn behind (4 vs 8)',
+          details: [
+            'You ended your turn at ATK 4 while your opponent had 8.',
+            RULE_BEHIND,
+            "Your opponent won the Red token. The winner takes the token of their Leading card's colour; it was still in the supply.",
+          ],
           token: 'Your opponent won the Red token.',
         },
         {
           key: '30:0',
           round: 3,
           result: 'draw',
-          text: 'The round was a draw: P1 had no Base creature to play.',
+          headline: 'Draw: P1 had no Base creature',
+          details: [
+            'P1 had no creature to play as the Base, so the round ended as a draw.',
+            DRAW_NO_TOKENS,
+          ],
           token: null,
         },
       ],
@@ -198,6 +219,127 @@ describe('buildMatchSummary', () => {
     expect(theirs?.decidedBy).toBe('You forfeited after two turn timeouts in a row.');
   });
 
+  it('explains an equal-ATK stall and the tie-break from roundOver + roundResolved', () => {
+    const rounds = [
+      entry(40, 0, { type: 'roundOver', reason: 'equalStall', seat: 0, atk: [30, 30] }),
+      entry(41, 0, { type: 'tieBreakStarted', iteration: 1, atk: [30, 30] }),
+      entry(41, 1, {
+        type: 'roundResolved',
+        outcome: {
+          kind: 'win',
+          winner: 1,
+          decidedBy: 'tieBreak',
+          atk: [35, 42],
+          tieBreakIterations: 1,
+        },
+      }),
+      entry(41, 2, {
+        type: 'tokenChanged',
+        change: { seat: 1, color: 'green', kind: 'stolen', leadingCardId: 'c02' },
+      }),
+    ];
+    const collected = collectRoundEvents(EMPTY_ROUND_EVENTS, 'm1', rounds);
+    // tieBreakStarted is narration only; the summary keeps the events it explains rounds with.
+    expect(collected.entries.map((e) => e.event.type)).toEqual([
+      'roundOver',
+      'roundResolved',
+      'tokenChanged',
+    ]);
+    const summary = buildMatchSummary(
+      WIN_SEAT_0,
+      matchState({ roundNumber: 1 }),
+      0,
+      collected.entries,
+    );
+    expect(summary?.rounds).toEqual([
+      {
+        key: '41:1',
+        round: 1,
+        result: 'loss',
+        headline: 'Opponent won on the tie-break (35 vs 42)',
+        details: [
+          "Equal-ATK stall: you ended your turn at ATK 30 vs 30 without playing a card, right after your opponent's End Turn at equal ATK.",
+          RULE_STALL,
+          RULE_TIE_BREAK,
+          'Both searched for a creature once; final ATK: you 35, opponent 42 — your opponent wins the round.',
+          "Your opponent took the Green token from you. The winner takes the token of their Leading card's colour; the loser held it, so it changed hands.",
+        ],
+        token: 'Your opponent took the Green token from you.',
+      },
+    ]);
+  });
+
+  it('explains a tie-break deck-out draw and names P1 for a missing Base', () => {
+    const rounds = [
+      entry(50, 0, { type: 'roundOver', reason: 'equalStall', seat: 1, atk: [12, 12] }),
+      entry(51, 0, { type: 'tieBreakDeckOut', seat: 1 }),
+      entry(51, 1, {
+        type: 'roundResolved',
+        outcome: { kind: 'draw', reason: 'tieBreakDeckOut', atk: [20, 12], tieBreakIterations: 2 },
+      }),
+      entry(60, 0, { type: 'roundOver', reason: 'p1NoBase', seat: 0, atk: [0, 0] }),
+      entry(61, 0, {
+        type: 'roundResolved',
+        outcome: { kind: 'draw', reason: 'p1NoBase', atk: [0, 0], tieBreakIterations: 0 },
+      }),
+    ];
+    const summary = buildMatchSummary(
+      WIN_SEAT_0,
+      matchState({ roundNumber: 2 }),
+      0,
+      collectRoundEvents(EMPTY_ROUND_EVENTS, 'm1', rounds).entries,
+    );
+    const [deckOut, noBase] = summary?.rounds ?? [];
+    expect(deckOut?.headline).toBe('Draw: the deck ran out in the tie-break');
+    expect(deckOut?.details).toEqual([
+      'Equal-ATK stall: your opponent ended their turn at ATK 12 vs 12 without playing a card, right after your End Turn at equal ATK.',
+      RULE_STALL,
+      RULE_TIE_BREAK,
+      "The deck ran out in the tie-break during your opponent's search, so the round is a draw (ATK 20 vs 12).",
+      DRAW_NO_TOKENS,
+    ]);
+    expect(noBase?.headline).toBe('Draw: you (P1) had no Base creature');
+    expect(noBase?.details[0]).toBe(
+      'You were P1 and had no creature to play as the Base, so the round ended as a draw.',
+    );
+  });
+
+  it('still explains a tie-break win when its roundOver was not seen (after a reload)', () => {
+    const summary = buildMatchSummary(WIN_SEAT_0, matchState({ roundNumber: 1 }), 0, [
+      entry(70, 0, {
+        type: 'roundResolved',
+        outcome: {
+          kind: 'win',
+          winner: 0,
+          decidedBy: 'tieBreak',
+          atk: [9, 4],
+          tieBreakIterations: 3,
+        },
+      }),
+    ]);
+    expect(summary?.rounds[0]?.details).toEqual([
+      'Equal-ATK stall: two End Turns in a row at equal ATK, the second without playing a card.',
+      RULE_TIE_BREAK,
+      'Both searched for a creature 3 times; final ATK: you 9, opponent 4 — you win the round.',
+    ]);
+  });
+
+  it('describes a kept token and gives no conclusion on a forfeit', () => {
+    const summary = buildMatchSummary(
+      WIN_SEAT_0,
+      matchState({
+        roundNumber: 2,
+        status: { kind: 'matchOver', reason: 'forfeitTimeouts', winner: 0, tokenCounts: [1, 0] },
+      }),
+      0,
+      [resolvedWin(10, 0, [6, 3]), token(10, 0, 'green', 'protected')],
+    );
+    expect(summary?.conclusion).toBeNull();
+    expect(summary?.rounds[0]?.details.at(-1)).toBe(
+      "You kept the Green token. The winner takes the token of their Leading card's colour; the winner already held it, so it stays.",
+    );
+  });
+
   it('leaves "decided by" empty when the view does not say', () => {
     const summary = buildMatchSummary(
       WIN_SEAT_0,
@@ -226,7 +368,13 @@ describe('MatchSummaryPanel', () => {
     expect(html).toContain('The final round was played');
     expect(html).toContain('Orange, Green');
     expect(html).toContain('3 rounds played');
-    expect(html).toContain('Round 2 · Lost');
+    expect(html).toContain('You hold 2 tokens, your opponent 1, after 3 rounds.');
+    // One collapsed details element per round; the headline in its summary, the why inside.
+    expect(html.match(/<details class="ct-sum-round"/g)).toHaveLength(3);
+    expect(html).not.toMatch(/<details[^>]* open/);
+    expect(html).toMatch(
+      /<summary[^>]*>[\s\S]*Round 2<\/span> — Opponent won: you ended your turn behind \(4 vs 8\)/,
+    );
     expect(html).toContain('You won the Orange token.');
     expect(html).not.toContain('Earlier rounds are not listed.');
   });

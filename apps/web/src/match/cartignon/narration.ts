@@ -4,6 +4,12 @@ import type { Seat } from '../../lib/synthetic';
 import { colorInfo } from './colors';
 import { roundOutcomeText, roundOverText } from './labels';
 import { modifierLabel } from './minionArt';
+import {
+  roundEndDetails,
+  roundResultDetails,
+  tokenReasonText,
+  type RoundEnd,
+} from './roundAccount';
 import { spellText } from './spellArt';
 import { otherSeat, outcomeView, tableCard, type Side } from './tableModel';
 
@@ -93,6 +99,10 @@ class Narrator {
   #anchor: NarrationLine | null = null;
   /** True once this round's `roundOver` line already said who won (or that it is a draw). */
   #roundDecided = false;
+  /** This round's `roundOver` line (takes the details of a result it already said). */
+  #roundOverLine: NarrationLine | null = null;
+  /** Whose tie-break search ran out of deck this round (`tieBreakDeckOut`). */
+  #deckOutBy: Side | null = null;
 
   readonly pub: CartignonPublicView;
   readonly mySeat: Seat;
@@ -173,16 +183,54 @@ class Narrator {
     return clause;
   }
 
-  #roundOver(event: Extract<CartignonSeatEvent, { type: 'roundOver' }>): string {
+  #roundEnd(event: Extract<CartignonSeatEvent, { type: 'roundOver' }>): RoundEnd {
     const mine = event.atk[this.mySeat];
     const theirs = event.atk[otherSeat(this.mySeat)];
+    return { reason: event.reason, endedBy: this.#side(event.seat), atk: [mine, theirs] };
+  }
+
+  #roundOver(event: Extract<CartignonSeatEvent, { type: 'roundOver' }>): string {
+    const end = this.#roundEnd(event);
     return roundOverText({
-      reason: event.reason,
+      reason: end.reason,
       endedBy: this.#side(event.seat),
       // RD-169: in P1's Base step only P1 can end the turn, so the ender is P1.
       iAmP1: event.seat === this.mySeat,
-      atk: [mine, theirs],
+      atk: end.atk,
     });
+  }
+
+  /**
+   * Why the round ended as it did, shown under the round-end lines in the detailed history (same
+   * wording as the end-of-match summary, `roundAccount.ts`): the round-over line explains what
+   * ended it and the rule, a tie-break result line the tie-break, a token line RD-26.
+   */
+  #roundDetails(event: CartignonSeatEvent): string[] | null {
+    switch (event.type) {
+      case 'roundOver':
+        return roundEndDetails(this.#roundEnd(event));
+      case 'tieBreakDeckOut':
+        this.#deckOutBy = this.#side(event.seat);
+        return null;
+      case 'roundResolved': {
+        const outcome = outcomeView(event.outcome, this.mySeat);
+        if (outcome === null) return null;
+        const details = roundResultDetails({
+          outcome,
+          end: null,
+          deckOutBy: this.#deckOutBy,
+          token: null,
+        });
+        this.#deckOutBy = null;
+        return details.length > 0 ? details : null;
+      }
+      case 'tokenChanged': {
+        const { seat, color, kind } = event.change;
+        return [tokenReasonText({ side: this.#side(seat), color, kind })];
+      }
+      default:
+        return null;
+    }
   }
 
   add(entry: EventLogEntry): void {
@@ -274,10 +322,21 @@ class Narrator {
         if (event.type === 'roundStarted' || event.type === 'roundOver') {
           this.#roundDecided = event.type === 'roundOver' && event.reason !== 'equalStall';
         }
+        const details = this.#roundDetails(event);
         const text = this.#simple(event);
-        if (text === null) return;
+        if (text === null) {
+          // A result the round-over line already said: its details (e.g. a drawn round changes
+          // no tokens) go under that line.
+          if (details !== null && this.#roundOverLine !== null) {
+            (this.#roundOverLine.details ??= []).push(...details);
+          }
+          return;
+        }
         const line = this.#push(entry, this.#actor(event), text);
+        if (details !== null) line.details = details;
         if (event.type === 'roundStarted') line.startsRound = true;
+        if (event.type === 'roundStarted') this.#roundOverLine = null;
+        if (event.type === 'roundOver') this.#roundOverLine = line;
       }
     }
   }

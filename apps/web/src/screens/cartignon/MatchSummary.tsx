@@ -6,14 +6,19 @@ import { SWATCH_BG } from './swatch';
 
 /**
  * End-of-match summary panel on the Cartignon table (replaces the bare outcome card): headline,
- * how the match was decided, final tokens, rounds played and the round results, with Rematch /
- * Change bot (solo bot matches only) and Back to home.
+ * the one-line conclusion and how the match was decided, final tokens, and the rounds: one line
+ * each (who won and why), expandable to the step-by-step account. With Rematch / Change bot (solo
+ * bot matches only) and Back to home.
  */
 
-const ROUND_RESULT_TEXT: Readonly<Record<SummaryResult, string>> = {
-  win: 'Won',
-  loss: 'Lost',
-  draw: 'Draw',
+/**
+ * Round edge, as the event history's actor edge: won = turn colour, lost = muted ink (>= 3:1 in
+ * both themes), draw = none. The headline words always say the result.
+ */
+const RESULT_EDGE: Readonly<Record<SummaryResult, string>> = {
+  win: 'border-turn',
+  loss: 'border-ink-muted',
+  draw: 'border-transparent',
 };
 
 function TokenRow({ label, colors }: { label: string; colors: readonly CartignonColor[] }) {
@@ -78,9 +83,15 @@ export function MatchSummaryPanel({
       >
         {summary.headline}
       </h2>
-      {summary.decidedBy && (
-        <p className="text-base" data-testid="summary-decided">
-          {summary.decidedBy}
+      {(summary.conclusion ?? summary.decidedBy) !== null && (
+        <p className="text-base">
+          {summary.conclusion && (
+            <span className="font-semibold" data-testid="summary-conclusion">
+              {summary.conclusion}
+            </span>
+          )}
+          {summary.conclusion && summary.decidedBy && ' '}
+          {summary.decidedBy && <span data-testid="summary-decided">{summary.decidedBy}</span>}
         </p>
       )}
 
@@ -106,17 +117,36 @@ export function MatchSummaryPanel({
             </span>
           </h3>
           {summary.rounds.length > 0 && (
-            <ol className="flex flex-col gap-1.5" data-testid="summary-rounds">
+            <ol className="flex flex-col gap-1" data-testid="summary-rounds">
               {summary.rounds.map((round) => (
-                <li key={round.key} className="text-base" data-result={round.result}>
-                  <span className="font-semibold">
-                    {round.round === null ? 'Round' : `Round ${round.round}`} ·{' '}
-                    {ROUND_RESULT_TEXT[round.result]}
-                  </span>
-                  <span className={`block text-sm ${mutedTextClass}`}>
-                    {round.text}
-                    {round.token && ` ${round.token}`}
-                  </span>
+                <li
+                  key={round.key}
+                  // pr-1: room for the focus ring inside the scrolling box (which clips it).
+                  className={`border-l-4 pr-1 pl-2 ${RESULT_EDGE[round.result]}`}
+                  data-result={round.result}
+                >
+                  {/* Collapsed by default: one line per round; the why on expand (native
+                      details/summary: keyboard and screen reader support built in). */}
+                  <details className="ct-sum-round" data-testid="summary-round">
+                    <summary className="flex cursor-pointer items-start gap-1.5 rounded-sm text-base leading-snug">
+                      <span aria-hidden="true" className="ct-sum-chevron" />
+                      <span className="min-w-0 break-words">
+                        <span className="font-semibold">
+                          {round.round === null ? 'Round' : `Round ${round.round}`}
+                        </span>
+                        {' — '}
+                        {round.headline}
+                      </span>
+                    </summary>
+                    <ul
+                      className={`ct-log-details mt-1 mb-1 ml-5 flex flex-col gap-0.5 text-sm leading-snug ${mutedTextClass}`}
+                    >
+                      {round.details.map((detail, index) => (
+                        // Details are sentences of one round; they do not reorder.
+                        <li key={index}>{detail}</li>
+                      ))}
+                    </ul>
+                  </details>
                 </li>
               ))}
             </ol>

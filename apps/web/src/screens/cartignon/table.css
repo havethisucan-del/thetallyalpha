@@ -649,6 +649,33 @@
   border-bottom: 1.5px solid currentColor;
 }
 
+/* End-of-match summary rounds (native details/summary): a drawn chevron replaces the marker and
+   turns down when the round is open. */
+.ct-sum-round > summary {
+  list-style: none;
+}
+.ct-sum-round > summary::-webkit-details-marker {
+  display: none;
+}
+.ct-sum-chevron {
+  flex: none;
+  width: 0.5em;
+  height: 0.5em;
+  margin: 0.45em 0.15em 0 0.05em;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 150ms ease-out;
+}
+.ct-sum-round[open] > summary .ct-sum-chevron {
+  transform: rotate(45deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ct-sum-chevron {
+    transition: none;
+  }
+}
+
 /* Unread badge: pops in each time a toast lands. */
 .ct-log-badge {
   animation: ct-badge-pop 260ms ease-out;

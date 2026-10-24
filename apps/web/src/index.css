@@ -225,19 +225,20 @@
     --cartignon-ink-red: var(--cartignon-ink-light);
   }
 
-  /* COLORBLIND_PALETTE in colors.ts (Okabe-Ito); set data-palette on any ancestor. */
+  /* COLORBLIND_PALETTE in colors.ts (Okabe-Ito derived, tuned for CVD); Settings sets
+     data-palette on <html> (settings/palette.ts); any ancestor works. */
   [data-palette='colorblind'] {
-    --cartignon-color-orange: #e69f00;
-    --cartignon-color-yellow: #f0e442;
-    --cartignon-color-green: #009e73;
-    --cartignon-color-blue: #56b4e9;
-    --cartignon-color-indigo: #0072b2;
-    --cartignon-color-violet: #cc79a7;
-    --cartignon-color-red: #d55e00;
+    --cartignon-color-orange: #e9af76;
+    --cartignon-color-yellow: #f1f22d;
+    --cartignon-color-green: #26917b;
+    --cartignon-color-blue: #6ec9fe;
+    --cartignon-color-indigo: #2e4089;
+    --cartignon-color-violet: #c154fb;
+    --cartignon-color-red: #ff1d01;
 
     --cartignon-ink-orange: var(--cartignon-ink-dark);
     --cartignon-ink-yellow: var(--cartignon-ink-dark);
-    /* Dark ink wherever it reaches 4.5:1 (green 5.22, sky blue 7.74, violet 5.83, red 4.62). */
+    /* Dark ink wherever it reaches 4.5:1 (green 4.61, blue 9.73, violet 5.04, red 4.61). */
     --cartignon-ink-green: var(--cartignon-ink-dark);
     --cartignon-ink-blue: var(--cartignon-ink-dark);
     --cartignon-ink-indigo: var(--cartignon-ink-light);

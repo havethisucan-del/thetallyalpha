@@ -1,8 +1,9 @@
+import { useState } from 'react';
+import { SettingsDialog } from '../components/Settings';
 import { buttonClass } from '../components/ui';
-import { ThemeToggle } from '../components/ThemeToggle';
 import { GAME_NAME } from '../config';
 
-/** One entry of the Home menu (more follow later: Settings, Stats, …). */
+/** One entry of the Home menu (Settings is built in and always last). */
 export interface HomeMenuItem {
   id: string;
   label: string;
@@ -12,14 +13,20 @@ export interface HomeMenuItem {
 /**
  * Title screen: the game name as a large manuscript title and a vertical menu (later items stack
  * below Play). Needs no server and never waits on one, so it renders the same in the static
- * (solo-only) build. The theme toggle sits in the top corner.
+ * (solo-only) build. The last menu entry opens Settings (theme, card colours, Replay tutorial).
  */
-export function HomeScreen({ items }: { items: readonly HomeMenuItem[] }) {
+export function HomeScreen({
+  items,
+  onReplayTutorial,
+}: {
+  items: readonly HomeMenuItem[];
+  /** Offered in Settings as "Replay tutorial" when given. */
+  onReplayTutorial?: (() => void) | undefined;
+}) {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const menuButtonClass = `${buttonClass.primary} min-h-14 w-full text-3xl! tracking-widest uppercase`;
   return (
     <div className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pt-3 pb-8">
-      <div className="fixed top-3 right-4 z-10">
-        <ThemeToggle />
-      </div>
       <div className="flex flex-1 flex-col items-center justify-center gap-10">
         <h1 className="ui-title text-center">{GAME_NAME}</h1>
         <nav aria-label="Main menu" className="w-full max-w-xs">
@@ -28,7 +35,7 @@ export function HomeScreen({ items }: { items: readonly HomeMenuItem[] }) {
               <li key={item.id}>
                 <button
                   type="button"
-                  className={`${buttonClass.primary} min-h-14 w-full text-3xl! tracking-widest uppercase`}
+                  className={menuButtonClass}
                   onClick={item.onSelect}
                   data-testid={`menu-${item.id}`}
                 >
@@ -36,9 +43,29 @@ export function HomeScreen({ items }: { items: readonly HomeMenuItem[] }) {
                 </button>
               </li>
             ))}
+            <li>
+              <button
+                type="button"
+                className={`${buttonClass.secondary} min-h-14 w-full text-3xl! tracking-widest uppercase`}
+                aria-haspopup="dialog"
+                onClick={() => {
+                  setSettingsOpen(true);
+                }}
+                data-testid="menu-settings"
+              >
+                Settings
+              </button>
+            </li>
           </ul>
         </nav>
       </div>
+      <SettingsDialog
+        open={settingsOpen}
+        onClose={() => {
+          setSettingsOpen(false);
+        }}
+        onReplayTutorial={onReplayTutorial}
+      />
     </div>
   );
 }

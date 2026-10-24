@@ -1,6 +1,6 @@
 /**
  * Light / dark UI theme. Without a stored choice the page follows `prefers-color-scheme` (pure
- * CSS, no attribute). A choice made with the toggle sets `data-theme="light" | "dark"` on <html>
+ * CSS, no attribute). A Light / Dark choice in Settings sets `data-theme="light" | "dark"` on <html>
  * and is kept in localStorage. Every storage / matchMedia access is guarded: private windows,
  * blocked site data and non-browser renders (tests) simply fall back to the OS preference.
  */
@@ -73,6 +73,40 @@ export function setTheme(theme: Theme): void {
     return;
   }
   writeStored(theme);
+  for (const listener of listeners) listener();
+}
+
+/** The Settings choice: follow the OS (`system`, no attribute, nothing stored) or a fixed theme. */
+export type ThemePreference = 'system' | Theme;
+
+export const THEME_PREFERENCES: readonly ThemePreference[] = ['system', 'light', 'dark'];
+
+/** The choice in effect on <html>: `system` when no explicit theme is set. */
+export function currentThemePreference(): ThemePreference {
+  return explicitTheme() ?? 'system';
+}
+
+/** Server / non-browser snapshot of the preference. */
+export function serverThemePreference(): ThemePreference {
+  return 'system';
+}
+
+/** Applies and stores a Settings choice; `system` removes the attribute and the stored value. */
+export function setThemePreference(preference: ThemePreference): void {
+  if (preference !== 'system') {
+    setTheme(preference);
+    return;
+  }
+  try {
+    delete document.documentElement.dataset['theme'];
+  } catch {
+    return;
+  }
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Storage unavailable: nothing was stored either.
+  }
   for (const listener of listeners) listener();
 }
 

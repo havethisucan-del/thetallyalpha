@@ -1,6 +1,6 @@
 import { BOT_LEVEL_NAMES, BOT_LEVELS, type BotLevel } from '@cartignon/ai';
 import { useId, type ReactNode } from 'react';
-import { buttonClass, cardClass } from '../components/ui';
+import { buttonClass, cardClass, optionRowClass, radioMarkerClass } from '../components/ui';
 
 interface PlayScreenProps {
   level: BotLevel;
@@ -49,16 +49,7 @@ export function PlayScreen({
           <ul className="flex flex-col gap-2" data-testid="bot-levels">
             {BOT_LEVELS.map((value) => (
               <li key={value}>
-                <label
-                  className={
-                    'ink-line flex min-h-12 cursor-pointer items-center gap-3 rounded-md ' +
-                    'bg-paper py-1.5 pr-3 pl-4 transition-colors hover:bg-paper-sunken ' +
-                    'has-checked:border-l-[6px] has-checked:border-l-turn has-checked:bg-paper-sunken ' +
-                    'has-checked:pl-3 ' +
-                    'has-focus-visible:outline-2 has-focus-visible:outline-offset-2 ' +
-                    'has-focus-visible:outline-focus'
-                  }
-                >
+                <label className={optionRowClass}>
                   <input
                     type="radio"
                     name={levelName}
@@ -69,11 +60,7 @@ export function PlayScreen({
                     }}
                     // Custom marker: ink ring; checked = turn fill inside a paper gap. The label
                     // carries the focus ring, so the input's own outline is not needed.
-                    className={
-                      'size-5 shrink-0 cursor-pointer appearance-none rounded-full border-2 ' +
-                      'border-ink bg-paper-raised checked:border-turn checked:bg-turn ' +
-                      'checked:shadow-[inset_0_0_0_3px_var(--color-paper-raised)] focus-visible:outline-none'
-                    }
+                    className={radioMarkerClass}
                     data-testid={`bot-level-${value}`}
                   />
                   <span className="min-w-0 text-xl leading-tight">
