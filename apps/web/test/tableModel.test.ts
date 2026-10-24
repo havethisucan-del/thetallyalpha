@@ -86,7 +86,8 @@ function privateView(overrides: Record<string, unknown> = {}) {
     pendingChoiceView: null,
     legal: [
       { type: 'playCreature', cardId: 'c01' },
-      { type: 'nullify', cardId: 'c01' },
+      // RD-173: a card that can Nullify has Nullify as its only command.
+      { type: 'nullify', cardId: 'c03' },
       { type: 'playSpell', cardId: 'c02' },
       { type: 'endTurn' },
       { type: 'mulligan' },
@@ -201,12 +202,11 @@ describe('buildTableModel', () => {
     const [c01, c02, c03] = model.hand;
     expect(c01?.commands.map((ref) => [ref.index, ref.command.type])).toEqual([
       [0, 'playCreature'],
-      [1, 'nullify'],
     ]);
     expect(c01?.label).toBe('c01 orange L3 ATK 4');
     expect(c02?.commands.map((ref) => ref.command.type)).toEqual(['playSpell']);
     expect(c02?.color).toBeNull();
-    expect(c03?.commands).toEqual([]);
+    expect(c03?.commands.map((ref) => [ref.index, ref.command.type])).toEqual([[1, 'nullify']]);
     expect(model.globalCommands.map((ref) => [ref.index, ref.command.type])).toEqual([
       [3, 'endTurn'],
       [4, 'mulligan'],

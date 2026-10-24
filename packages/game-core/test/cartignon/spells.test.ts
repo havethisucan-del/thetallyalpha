@@ -145,7 +145,7 @@ describe('resolution (RD-14, RD-119): Primary or Secondary, then graveyard or at
       },
     ]);
     expect(state.board.attachedSpells).toEqual([
-      { cardId: spell(15), seat: 0, targetCardId: cr('red', 2) },
+      { cardId: spell(15), seat: 0, targetCardId: cr('red', 2), branch: 'secondary' },
     ]);
     expect(state.board.zones.graveyard).not.toContain(spell(15));
     expect(state.board.zones.hands[0]).toEqual([]);

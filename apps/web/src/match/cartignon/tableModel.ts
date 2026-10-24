@@ -6,6 +6,11 @@ import type {
 } from '@cartignon/protocol';
 import { cardLabel, choiceWithOptions, type CartignonViewParts } from '../../lib/cartignon';
 import type { Seat } from '../../lib/synthetic';
+import {
+  attachedEffectSummary,
+  type AttachedEffectSummary,
+  type SpellBranch,
+} from './attachedSpells';
 import type { ClockReading } from './clock';
 import { CARTIGNON_COLORS, type CartignonColor } from './colors';
 
@@ -42,6 +47,17 @@ export interface TableCard {
 export interface StackCard extends TableCard {
   /** 0 = bottom (Base); the last card is the top. */
   position: number;
+  /** Spell cards attached to this creature (`board.attachedSpells`), in attach order. */
+  attached: AttachedSpellCard[];
+}
+
+/** A played spell card attached to a creature (RD-12 / RD-14), with what it did to it. */
+export interface AttachedSpellCard extends TableCard {
+  /** Who cast it. */
+  side: Side;
+  /** The effect that fired (RD-174); null when the view does not say (old saved boards). */
+  branch: SpellBranch | null;
+  effect: AttachedEffectSummary;
 }
 
 export interface TrapCard extends TableCard {
@@ -221,6 +237,14 @@ function seatArea(pub: CartignonPublicView, seat: Seat, mySeat: Seat): SeatArea 
     stack: pub.board.stacks[seat].map((cardId, position) => ({
       ...tableCard(pub, cardId),
       position,
+      attached: pub.board.attachedSpells
+        .filter((spell) => spell.targetCardId === cardId)
+        .map((spell) => ({
+          ...tableCard(pub, spell.cardId),
+          side: sideOf(spell.seat, mySeat),
+          branch: spell.branch ?? null,
+          effect: attachedEffectSummary(pub.board, spell.cardId, cardId),
+        })),
     })),
     traps,
     armedTrapCount: traps.length,

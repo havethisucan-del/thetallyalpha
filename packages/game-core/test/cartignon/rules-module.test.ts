@@ -463,7 +463,8 @@ describe('acting seat differs from the turn seat (S-19, RD-160)', () => {
       step(kitRules, s1, 0, toCartignonAction({ type: 'endTurn' }), s1.revision),
     ).toMatchObject({ ok: false, code: 'ILLEGAL', reason: 'CHOICE_PENDING' });
     const done = mustStep(kitRules, s1, 1, legal[0] as RoundCommand);
-    expect(viewFor(kitRules, done.snapshot, 0).phase).toMatchObject({ activeSeat: 1, turnSeat: 1 });
+    // RD-172: S-11 no longer ends the turn; it stays the S-19 caster's (seat 0's) turn.
+    expect(viewFor(kitRules, done.snapshot, 0).phase).toMatchObject({ activeSeat: 0, turnSeat: 0 });
   });
 });
 
@@ -568,7 +569,8 @@ const HIDDEN_FIELDS: Readonly<Record<string, readonly string[]>> = {
 describe('leak sweep: seeded self-play through the RulesModule (real catalog)', () => {
   const { catalog } = realCatalog();
   const rules = createCartignonRules(catalog);
-  const SEEDS = 12;
+  // RD-172 changed the random trajectories: 12 seeds no longer reached S-17's handCardsReturned.
+  const SEEDS = 28;
   const MAX_STEPS = 2_500;
 
   function checkView(view: SeatView, match: CartignonMatchState, seat: Seat, where: string): void {

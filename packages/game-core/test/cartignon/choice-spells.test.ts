@@ -281,11 +281,10 @@ describe('S-10 Kindred Link (RD-117, RD-108)', () => {
   });
 });
 
-describe('S-11 Repel (RD-118, RD-105, RD-121)', () => {
+describe('S-11 Repel (RD-118, RD-105, RD-172)', () => {
   const opp = [cr('blue', 1), cr('blue', 2), cr('blue', 4)];
 
-  it('choice among level 1-3 (Base allowed); Base removed -> position 1 is the new Base; turn ends', () => {
-    // Seat 0 stays ahead after the removal, so the turn passes (RD-169).
+  it('choice among level 1-3 (Base allowed); Base removed -> position 1 is the new Base; locked', () => {
     const own = [...OWN3, cr('red', 4)];
     const s = stateOf({ hands: [[spell(11)], [cr('violet', 1)]], stacks: [own, opp] });
     const played = apply(s, 0, ps(spell(11)));
@@ -302,11 +301,16 @@ describe('S-11 Repel (RD-118, RD-105, RD-121)', () => {
       position: 0,
       to: { zone: 'hand', seat: 1 },
     });
-    expect(types(events).slice(-3)).toEqual(['spellResolved', 'turnEnded', 'turnStarted']);
+    expect(types(events).slice(-2)).toEqual(['replayLocked', 'spellResolved']);
     expect(state.board.zones.stacks[1]).toEqual([cr('blue', 2), cr('blue', 4)]);
     expect(state.board.zones.hands[1]).toEqual([cr('violet', 1), cr('blue', 1)]);
-    expect(state.phase).toEqual({ kind: 'turn', active: 1 });
-    expect(state.turnNumber).toBe(s.turnNumber + 1);
+    // RD-172: the caster keeps the turn; the returned creature is locked for its owner.
+    expect(state.phase).toEqual({ kind: 'turn', active: 0 });
+    expect(state.turnNumber).toBe(s.turnNumber);
+    expect(state.turnLocks).toEqual([{ seat: 1, cardId: cr('blue', 1) }]);
+    const ended = apply(state, 0, END).state;
+    expect(ended.phase).toMatchObject({ kind: 'turn', active: 1 });
+    expect(ended.turnLocks).toBeUndefined();
   });
 
   it('single target: automatic; emptying the stack sets stackEmptiedBySpell (RD-105)', () => {
@@ -315,13 +319,12 @@ describe('S-11 Repel (RD-118, RD-105, RD-121)', () => {
     expect(types(events)).toEqual([
       'spellPlayed',
       'creatureRemoved',
+      'replayLocked',
       'spellResolved',
-      'turnEnded',
-      'turnStarted',
     ]);
     expect(state.pendingChoice).toBeUndefined();
     expect(state.stackEmptiedBySpell).toBe(true);
-    expect(state.phase).toEqual({ kind: 'turn', active: 1 });
+    expect(state.phase).toEqual({ kind: 'turn', active: 0 });
   });
 
   it('no level 1-3 enemy creature -> Secondary: grave draw 1; the turn does not end', () => {
@@ -580,9 +583,8 @@ describe('review follow-ups: edges and serialisation across the suspend boundary
       'modifierSilenced',
       'modifierLive',
       'cardsDrawn',
+      'replayLocked',
       'spellResolved',
-      'turnEnded',
-      'turnStarted',
     ]);
     expect(r.events[2]).toMatchObject({ seat: 1, cardId: cr('blue', 3), position: 2 });
     expect(r.events[3]).toMatchObject({ seat: 1, cardId: cr('blue', 2), kind: 'drawDeck' });
@@ -614,13 +616,32 @@ describe('review follow-ups: edges and serialisation across the suspend boundary
     expect(r.state.board.linkUpSource).toEqual([null, null]);
   });
 
-  it('S-11 mid-choice JSON round-trip keeps the end-turn outcome', () => {
+  it('S-11 mid-choice JSON round-trip keeps the outcome (caster on turn, lock, RD-172)', () => {
     const s = stateOf({
       hands: [[spell(11)], []],
       stacks: [OWN3, [cr('blue', 1), cr('blue', 2)]],
     });
     const mid = apply(s, 0, ps(spell(11))).state;
     const r = resumeBoth(mid, choose(1, [cr('blue', 2)]));
-    expect(r.state.phase).toEqual({ kind: 'turn', active: 1 });
+    expect(r.state.phase).toEqual({ kind: 'turn', active: 0 });
+    expect(r.state.turnLocks).toEqual([{ seat: 1, cardId: cr('blue', 2) }]);
+  });
+
+  it('RD-172: a stored pre-RD-172 continuation with endTurnRequested is tolerated and ignored', () => {
+    const s = stateOf({
+      hands: [[spell(11)], []],
+      stacks: [OWN3, [cr('blue', 1), cr('blue', 2)]],
+    });
+    const mid = apply(s, 0, ps(spell(11))).state;
+    expect(mid.pendingChoice).toBeDefined();
+    const raw = JSON.parse(JSON.stringify(mid)) as {
+      pendingChoice: { continuation: { scratch: Record<string, unknown> } };
+    };
+    raw.pendingChoice.continuation.scratch['endTurnRequested'] = true;
+    const legacy = deepFreeze(raw as unknown as RoundState);
+    const r = applyCommand(ctx, legacy, 0, choose(1, [cr('blue', 2)]), rng(9));
+    if (!r.ok) throw new Error(r.code);
+    expect(types(r.events)).not.toContain('turnEnded');
+    expect(r.state.phase).toEqual({ kind: 'turn', active: 0 });
   });
 });

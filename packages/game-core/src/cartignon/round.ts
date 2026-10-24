@@ -70,19 +70,19 @@ import {
  * evaluated on the post-lapse board (RD-156): the opponent strictly ahead -> the round ends and the
  * opponent wins (`opponentAhead`); equal ATK, the previous turn also ended at equal ATK and no card
  * was played this turn -> the round ends with the tie-break (`equalStall`, RD-19); otherwise the
- * turn passes. Turn-ending spells (RD-121) and the turn timeout (RD-33) use the same evaluation.
+ * turn passes. The turn timeout (RD-33) uses the same evaluation. No spell ends the turn (RD-172).
  *
  * Spells (R4c, spells.ts): `playSpell` in every phase except `p1Base` (RD-83); the player stays on
- * turn and the phase does not change (RD-14), unless the spell ends the turn (RD-121); it counts
+ * turn and the phase does not change (RD-14; RD-172: no spell ends the turn); it counts
  * as a play (`playedThisTurn`, RD-88). A stack emptied by a spell takes a new mid-round Base on its
  * owner's next play (RD-105).
  *
  * Pending choice (R4c-2, ADR-0007 section 4): a spell that needs a real answer suspends and the
  * state holds `pendingChoice`. The phase does not change; `activeSeat` is the choosing seat, and
  * `chooseSpellOption` from that seat is the only legal command (everything else: CHOICE_PENDING).
- * After the answer the spell resumes and the turn continues (or ends, RD-121).
+ * After the answer the spell resumes and the turn continues.
  *
- * R4c-3: `turnLocks` (S-09 replay lock, cleared at every turn end), `p1StackTouchedBySpell`
+ * R4c-3: `turnLocks` (S-09 and RD-172 replay locks, cleared at every turn end), `p1StackTouchedBySpell`
  * (RD-143 Nullify ban) and leaving `p2Opening` when a spell gives P2 a stack (RD-144).
  *
  * R4c-4 (traps.ts): armed traps (`Board.armedTraps`, public, RD-130) trigger on placements of the
@@ -96,8 +96,8 @@ import {
  * cards, and no round ends with armed traps, so the `roundOver` guards of match.ts hold.
  *
  * R4c-5 (S-19, spells.ts): a spell drawn by S-19 is played by the opponent of the seat on turn; a
- * choice it needs is answered by that opponent (`activeSeat` = the chooser, RD-160), and its
- * turn-ending request ends the turn in progress (RD-121). A trap it arms is dormant until the
+ * choice it needs is answered by that opponent (`activeSeat` = the chooser, RD-160); creatures it
+ * returns to the seat on turn are replay-locked for that seat (RD-172). A trap it arms is dormant until the
  * turn in progress ends (RD-157); `lapseWindow` then opens its window instead of lapsing it.
  *
  * Out of scope: resolution/cleanup/next round (R5, match.ts), adapter/projection (R6),
@@ -332,6 +332,11 @@ export type RoundErrorCode =
   | 'BASE_ALREADY_PLACED'
   | 'BASE_LEVEL_TOO_HIGH'
   | 'BASE_COLOR_BEATEN'
+  /**
+   * RD-173: in P2's opening response a card that can Nullify must Nullify; placing it as the P2
+   * Base Minion is rejected.
+   */
+  | 'NULLIFY_REQUIRED'
   /** RD-63 / RD-169: End Turn in the P1 Base step while a Base Minion or Mulligan is possible. */
   | 'END_TURN_NOT_ALLOWED'
   | 'MULLIGAN_HAND_TOO_SMALL'
@@ -563,6 +568,10 @@ function checkPlayCreature(
     }
     if (beats(ctx.colorRules, p1Base.color, found.def.color)) {
       return reject('BASE_COLOR_BEATEN', `${found.def.color} is beaten by ${p1Base.color}`);
+    }
+    // RD-173 (user, 2026-10-24): "when a card can nullify, Nullify is the only option for it".
+    if (checkNullify(ctx, state, seat, cardId).ok) {
+      return reject('NULLIFY_REQUIRED', `${cardId} can nullify, so it may only nullify`);
     }
     return OK;
   }
@@ -885,7 +894,7 @@ function applyPlaySpell(
     state.turnLocks ?? [], // RD-145: both seats' locks (a spell may be played through S-19).
     placementSettler(ctx, seat, rng),
   );
-  return afterSpellSegment(ctx, { ...state, playedThisTurn: true }, seat, r, rng);
+  return afterSpellSegment({ ...state, playedThisTurn: true }, r);
 }
 
 function applyChooseSpellOption(
@@ -907,9 +916,7 @@ function applyChooseSpellOption(
   );
   const rest: { -readonly [K in keyof RoundState]: RoundState[K] } = { ...state };
   delete rest.pendingChoice;
-  // The turn belongs to the phase's active seat. R4c-2: also the chooser; R4c-5 (RD-160): not
-  // for a spell played through S-19, whose chooser is the opponent of the seat on turn.
-  return afterSpellSegment(ctx, rest, activeOf(state), r, rng);
+  return afterSpellSegment(rest, r);
 }
 
 /** The phase's active seat; only called outside `roundOver`. */
@@ -923,16 +930,10 @@ function activeOf(state: RoundState): Seat {
  * RD-143 (a changed P1 stack bans Nullify); replay locks (`turnLocks`); a suspension becomes
  * `pendingChoice` (with the next deterministic choice id and a public `spellChoiceRequested`
  * event, RD-142: no count for `handCreature`); a finished spell leaves `p2Opening` when the stacks
- * no longer fit it (RD-144) and may end the turn (RD-121). `seat` is the seat whose turn is in
- * progress.
+ * no longer fit it (RD-144). RD-172: a spell never ends the turn (the replay locks of S-04, S-11
+ * and S-18 arrive in `r.locks`).
  */
-function afterSpellSegment(
-  ctx: RoundContext,
-  state: RoundState,
-  seat: Seat,
-  r: SpellOutcome,
-  rng: Rng,
-): RoundResult {
+function afterSpellSegment(state: RoundState, r: SpellOutcome): RoundResult {
   const before = state.board.zones.stacks;
   const after = r.board.zones.stacks;
   const emptied = ([0, 1] as const).some((s) => before[s].length > 0 && after[s].length === 0);
@@ -959,14 +960,7 @@ function afterSpellSegment(
     });
     return { ok: true, state: { ...next, pendingChoice, nextChoiceId: choiceId + 1 }, events };
   }
-  next = leaveStaleOpening(next);
-  if (!r.endTurnRequested) return { ok: true, state: next, events };
-  // RD-121 / RD-169 (Proposed): the turn in progress ends right after the spell resolved, exactly
-  // like End Turn: the trap lapse (RD-156), then the opponent-ahead check (round over) or the
-  // hand-over. Legal in every phase a spell can be played in (also `p2Opening`, RD-137).
-  const ended = withWindowLapse(ctx, next, seat, rng, (s) => applyEndTurn(ctx, s, seat));
-  if (!ended.ok) return ended;
-  return { ok: true, state: ended.state, events: [...events, ...ended.events] };
+  return { ok: true, state: leaveStaleOpening(next), events };
 }
 
 function sameCards(a: readonly CardId[], b: readonly CardId[]): boolean {
@@ -1022,7 +1016,7 @@ function endRound(
 }
 
 /**
- * RD-169: `seat` ends its turn (End Turn, a turn-ending spell, RD-121, or the turn timeout, RD-33),
+ * RD-169: `seat` ends its turn (End Turn or the turn timeout, RD-33),
  * evaluated on the post-lapse board (`withWindowLapse`, RD-156). Never uses `rng`.
  * - P1 Base step (RD-63 / RD-67 / RD-163): no Base Minion was placed -> the round ends as a draw
  *   (`p1NoBase`), no ATK comparison.
@@ -1166,7 +1160,7 @@ function lapseWindow(
 
 /**
  * RD-129 / RD-156 (lapse first, then decide): every command that ends `endingSeat`'s turn (End
- * Turn, Nullify, a turn-ending spell, RD-121, the timeout skip) first lapses the traps whose window
+ * Turn, Nullify, the timeout skip) first lapses the traps whose window
  * this turn is (`lapseWindow`). Only then is the command evaluated, so the RD-169 ATK checks see
  * the post-lapse board.
  *

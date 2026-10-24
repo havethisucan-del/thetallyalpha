@@ -148,18 +148,33 @@ const S03: SpellHandler = {
 /**
  * S-04 (RD-132): exactly 3 creatures on the field -> all of them return at once to their owners'
  * hands (RD-104; owner = the seat whose stack it is on, RD-135); nothing activates in between.
- * Only the Primary ends the turn (RD-121).
+ * RD-172: the turn does not end; each returned creature is replay-locked for its owner
+ * until the turn ends (`returnToOwners`).
  */
 const S04: SpellHandler = {
   feasible: (v) => fieldCreatureCount(v.board) === 3,
   primary: (k) => {
-    // Best-effort (RD-161): every creature on the field returns (any count), the turn ends.
+    // Best-effort (RD-161): every creature on the field returns (any count).
     const { stacks } = k.board.zones;
-    const all = [...stacks[k.caster], ...stacks[k.opponent]];
-    if (all.length > 0) k.removeFromStacks(all, 'ownerHand');
-    k.requestEndTurn();
+    returnToOwners(k, [...stacks[k.caster], ...stacks[k.opponent]]);
   },
 };
+
+/**
+ * RD-172 (replacing the RD-121 turn end): returns `cardIds` (on stacks) to their owners'
+ * hands as ONE removal, then replay-locks each for its owner until the turn ends. Owner = the seat
+ * whose stack the creature was on before the removal (RD-135); both seats' cards are locked (through
+ * S-19 the kernel caster is not the seat on turn, RD-112).
+ */
+function returnToOwners(k: SpellKernel, cardIds: readonly CardId[]): void {
+  if (cardIds.length === 0) return;
+  const { stacks } = k.board.zones;
+  const owners = cardIds.map((id): Seat => (stacks[0].includes(id) ? 0 : 1));
+  k.removeFromStacks(cardIds, 'ownerHand');
+  cardIds.forEach((id, i) => {
+    k.lockReplay(owners[i] as Seat, id);
+  });
+}
 
 /**
  * S-06 (RD-111, RD-133): the opponent's Leading creature has an active modifier (live per RD-53
@@ -299,25 +314,22 @@ const S10: SpellHandler = {
 export const S11_MAX_LEVEL = 3;
 
 /**
- * S-11 (RD-118, RD-105, RD-121): the opponent has a level 1-3 creature on its stack (Base
+ * S-11 (RD-118, RD-105, RD-172): the opponent has a level 1-3 creature on its stack (Base
  * included) -> the caster chooses one (`enemyCreature`, automatic with a single candidate); it
  * returns to its owner's hand (RD-104 / RD-135), the cards above shift down (a removed Base makes
- * position 1 the new Base), and the caster's turn ends.
+ * position 1 the new Base). RD-172: the turn does not end; the returned creature is
+ * replay-locked for its owner until the turn ends.
  */
 const S11: SpellHandler = {
   feasible: (v) => stackCreaturesWhere(v, v.opponent, (l) => l <= S11_MAX_LEVEL).length > 0,
   primary: (k) => {
     const options = stackCreaturesWhere(k, k.opponent, (l) => l <= S11_MAX_LEVEL);
-    if (options.length === 0) {
-      // Unreachable after `feasible`. Best-effort (RD-161): nothing to return, the turn ends.
-      k.requestEndTurn();
-      return undefined;
-    }
+    // Unreachable after `feasible`. Best-effort (RD-161): nothing to return; skip.
+    if (options.length === 0) return undefined;
     return { kind: 'enemyCreature', options, min: 1, max: 1, step: 'repel', scratch: null };
   },
   resume: (k, _step, _scratch, selection) => {
-    k.removeFromStacks(selection, 'ownerHand');
-    k.requestEndTurn();
+    returnToOwners(k, selection);
     return undefined;
   },
 };
@@ -354,18 +366,16 @@ const S05: SpellHandler = {
  * S-07 (RD-108, RD-127, RD-103): the caster has a Leading creature and a (non-locked) hand
  * creature -> the caster chooses one (`handCreature`); `replaceLeader` atomically puts the old
  * Leading creature into the deck and the chosen one in its place (only the new one activates),
- * the deck is shuffled, and the caster's turn ends (RD-103 / RD-121; the Secondary does not end it).
+ * and the deck is shuffled. RD-172: the turn does not end (supersedes the RD-103 /
+ * RD-121 turn end); nothing returns to a hand, so nothing is replay-locked.
  */
 const S07: SpellHandler = {
   feasible: (v) =>
     leadingCreature(v.board, v.caster) !== undefined && placeableHandCreatures(v).length > 0,
   primary: (k) => {
     const options = placeableHandCreatures(k);
-    if (options.length === 0 || leadingCreature(k.board, k.caster) === undefined) {
-      // Unreachable after `feasible`. Best-effort (RD-161): no replacement, the turn still ends.
-      k.requestEndTurn();
-      return undefined;
-    }
+    // Unreachable after `feasible`. Best-effort (RD-161): no replacement; skip.
+    if (options.length === 0 || leadingCreature(k.board, k.caster) === undefined) return undefined;
     return { kind: 'handCreature', options, min: 1, max: 1, step: 'replace', scratch: null };
   },
   resume: (k, _step, _scratch, selection) => {
@@ -374,7 +384,6 @@ const S07: SpellHandler = {
       k.replaceLeader(k.caster, newCardId, 'deck');
       k.shuffleDeck();
     }
-    k.requestEndTurn();
     return undefined;
   },
 };
@@ -507,7 +516,7 @@ function enemyFromScratch(scratch: JsonValue): CardId | null {
 
 /**
  * S-18's second step: the caster's own creature (`ownCreature`), then both return as one removal
- * and the turn ends. Best-effort (RD-161): a missing side returns nothing; the turn still ends.
+ * and are replay-locked (RD-172). Best-effort (RD-161): a missing side returns nothing.
  */
 function withdrawStep(k: SpellKernel, enemy: CardId | null): SpellChoiceRequest | undefined {
   const options = [...k.board.zones.stacks[k.caster]];
@@ -519,17 +528,16 @@ function withdrawStep(k: SpellKernel, enemy: CardId | null): SpellChoiceRequest 
 }
 
 function withdraw(k: SpellKernel, own: readonly CardId[], enemy: CardId | null): void {
-  const returned = enemy === null ? [...own] : [...own, enemy];
-  if (returned.length > 0) k.removeFromStacks(returned, 'ownerHand');
-  k.requestEndTurn();
+  returnToOwners(k, enemy === null ? [...own] : [...own, enemy]);
 }
 
 /**
- * S-18 (RD-119, RD-121, RD-104 / RD-135): the opponent has at least 2 more creatures than the
+ * S-18 (RD-119, RD-172, RD-104 / RD-135): the opponent has at least 2 more creatures than the
  * caster and the caster has at least 1 -> two chained choices: (1) an enemy creature
  * (`enemyCreature`), (2) one of the caster's own (`ownCreature`, automatic with one). Both then
  * return to their owners' hands as ONE removal (RD-147, Proposed: nothing activates in between;
- * order: the caster's first, as RD-132), and the caster's turn ends.
+ * order: the caster's first, as RD-132). RD-172: the turn does not end; both returned
+ * creatures are replay-locked for their owners until the turn ends.
  */
 const S18: SpellHandler = {
   feasible: (v) =>
@@ -564,7 +572,7 @@ const TRAP: SpellHandler = {
 };
 
 // ---------------------------------------------------------------------------------------------
-// R4c-5 handler: S-19 Gambit Prism (RD-112, RD-119, RD-120, RD-121, RD-157..RD-161).
+// R4c-5 handler: S-19 Gambit Prism (RD-112, RD-119, RD-120, RD-157..RD-161).
 
 /**
  * S-19 Gambit Prism: always playable; draws 1 random card from the graveyard (kernel

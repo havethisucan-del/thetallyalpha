@@ -3,6 +3,7 @@ import type { Seat } from '../rules.js';
 import {
   removeFromStacks,
   type ArmedTrap,
+  type AttachedSpell,
   type Board,
   type BoardEvent,
   type CardIndex,
@@ -205,7 +206,12 @@ function fireSecondary(
   if (target === null || findCard(done.board.zones, target)?.zone !== 'stack') {
     return { board: toGraveyard(done.board, trap.cardId), events: done.events, attachedTo: null };
   }
-  const attached = { cardId: trap.cardId, seat: trap.seat, targetCardId: target };
+  const attached: AttachedSpell = {
+    cardId: trap.cardId,
+    seat: trap.seat,
+    targetCardId: target,
+    branch: 'secondary',
+  };
   return {
     board: { ...done.board, attachedSpells: [...done.board.attachedSpells, attached] },
     events: done.events,

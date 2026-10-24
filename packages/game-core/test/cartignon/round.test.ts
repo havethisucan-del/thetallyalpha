@@ -351,30 +351,39 @@ describe('P2 Base Minion (RD-07, RD-64 delegated)', () => {
     const legal = legalCommands(ctx, s, 1);
     expect(legal).toContainEqual(pc(cr('blue', 1)));
     expect(legal).toContainEqual(pc(cr('indigo', 3))); // level equal to Base Level
-    // One card qualifying for both: both commands are enumerated separately.
-    expect(legal).toContainEqual(pc(cr('orange', 1)));
+    // RD-173: a card that can nullify may only nullify (orange beats yellow).
+    expect(legal).not.toContainEqual(pc(cr('orange', 1)));
     expect(legal).toContainEqual(nu(cr('orange', 1)));
-    const { state, events } = apply(s, 1, pc(cr('orange', 1)));
-    expect(state.board.zones.stacks[1]).toEqual([cr('orange', 1)]);
+    expectReject(s, 1, pc(cr('orange', 1)), 'NULLIFY_REQUIRED');
+    const { state, events } = apply(s, 1, pc(cr('blue', 1)));
+    expect(state.board.zones.stacks[1]).toEqual([cr('blue', 1)]);
     expect(state.board.zones.stacks[0]).toEqual([cr('yellow', 3)]);
     expect(state.phase).toEqual({ kind: 'turn', active: 1 });
     expect(events[0]).toMatchObject({ type: 'creaturePlayed', role: 'p2Base' });
   });
 
-  it('a color beating the P1 Base Minion at a valid level is accepted as P2 base (RD-07)', () => {
+  it('RD-173 (user): a card that can nullify is never a P2 Base; Nullify is its only option', () => {
     let s = setup([cr('red', 2)], [cr('violet', 1), cr('violet', 3)]);
     s = play(s, 0, pc(cr('red', 2))); // Base Level 2; violet beats red
     expect(legalCommands(ctx, s, 1)).toEqual([
-      pc(cr('violet', 1)),
       nu(cr('violet', 1)),
-      nu(cr('violet', 3)), // level 3 > Base Level: nullify only
+      nu(cr('violet', 3)),
       MULLIGAN,
       END,
     ]);
-    const { state, events } = apply(s, 1, pc(cr('violet', 1)));
+    expectReject(s, 1, pc(cr('violet', 1)), 'NULLIFY_REQUIRED');
+    // Level 3 > Base Level: the level check reports first; still never a Base.
+    expectReject(s, 1, pc(cr('violet', 3)), 'BASE_LEVEL_TOO_HIGH');
+  });
+
+  it('RD-173: once Nullify is no longer allowed, the same card may be the P2 Base again', () => {
+    let s = setup([cr('red', 2)], [cr('violet', 1)]);
+    s = play(s, 0, pc(cr('red', 2)));
+    // Forged: a spell touched P1's stack this round (RD-143), so Nullify is gone.
+    const banned = deepFreeze({ ...s, p1StackTouchedBySpell: true });
+    expect(legalCommands(ctx, banned, 1)).toContainEqual(pc(cr('violet', 1)));
+    const { state, events } = apply(banned, 1, pc(cr('violet', 1)));
     expect(state.board.zones.stacks).toEqual([[cr('red', 2)], [cr('violet', 1)]]);
-    expect(state.board.zones.graveyard).toEqual([]);
-    expect(state.phase).toEqual({ kind: 'turn', active: 1 });
     expect(events[0]).toMatchObject({ type: 'creaturePlayed', role: 'p2Base' });
   });
 

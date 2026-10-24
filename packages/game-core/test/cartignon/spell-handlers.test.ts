@@ -176,7 +176,7 @@ describe('S-03 (RD-107): stack swap', () => {
     expect(state.board.linkUpPending).toEqual([true, false]);
     // The caster's Leading after the swap is blue-3 (30); -100 floors it at 0 (RD-61).
     expect(state.board.attachedSpells).toEqual([
-      { cardId: spell(3), seat: 0, targetCardId: cr('blue', 3) },
+      { cardId: spell(3), seat: 0, targetCardId: cr('blue', 3), branch: 'primary' },
     ]);
     expect(creatureAtk(drawCtx.cards, state.board, cr('blue', 3))).toBe(0);
     // Ownership moves with the stack (RD-135).
@@ -229,8 +229,8 @@ describe('S-03 (RD-107): stack swap', () => {
   });
 });
 
-describe('S-04: exactly 3 creatures return to their owners; the turn ends (RD-121)', () => {
-  it('returns all three in one step, ends the turn, and the empty stacks take mid-round Bases', () => {
+describe('S-04: exactly 3 creatures return to their owners, replay-locked (RD-172)', () => {
+  it('returns all three in one step; the caster stays on turn; locks clear at End Turn', () => {
     // Seat 0: red-1, red-2 (red-2 carries drawDeck at position 1); seat 1: blue-1.
     const c = createRoundContext(catalogWithModifiers([['red', 2, ['drawDeck']]]));
     const s = stateOf({
@@ -244,24 +244,36 @@ describe('S-04: exactly 3 creatures return to their owners; the turn ends (RD-12
       'creatureRemoved',
       'creatureRemoved',
       'modifierSilenced',
+      'replayLocked',
+      'replayLocked',
+      'replayLocked',
       'spellResolved',
-      'turnEnded',
-      'turnStarted',
     ]);
     expect(state.board.zones.stacks).toEqual([[], []]);
     expect(state.board.zones.hands).toEqual([
       [cr('red', 1), cr('red', 2)],
       [cr('violet', 4), cr('blue', 1)],
     ]);
-    expect(state.phase).toEqual({ kind: 'turn', active: 1, equalEndBy: 0 }); // 0 = 0 (RD-169)
+    // RD-172: the turn does not end; each returned creature is locked for its owner (RD-135).
+    expect(state.phase).toEqual({ kind: 'turn', active: 0 });
+    expect(state.turnLocks).toEqual([
+      { seat: 0, cardId: cr('red', 1) },
+      { seat: 0, cardId: cr('red', 2) },
+      { seat: 1, cardId: cr('blue', 1) },
+    ]);
     expect(state.stackEmptiedBySpell).toBe(true);
+    expectReject(state, 0, { type: 'playCreature', cardId: cr('red', 1) }, 'CARD_REPLAY_LOCKED');
+    expect(legalCommands(c, state, 0).some((x) => x.type === 'playCreature')).toBe(false);
+    const ended = apply(state, 0, { type: 'endTurn' }, 1, c).state;
+    expect(ended.phase).toEqual({ kind: 'turn', active: 1, equalEndBy: 0 }); // 0 = 0 (RD-169)
+    expect(ended.turnLocks).toBeUndefined();
     // RD-105: any creature becomes the new Base (no RD-07 limits, no p2Opening, no nulling).
-    const next = apply(state, 1, { type: 'playCreature', cardId: cr('violet', 4) }, 1, c);
+    const next = apply(ended, 1, { type: 'playCreature', cardId: cr('violet', 4) }, 1, c);
     expect(next.events[0]).toMatchObject({ type: 'creaturePlayed', role: 'midRoundBase' });
     expect(legalCommands(c, next.state, 1).some((x) => x.type === 'nullify')).toBe(false);
   });
 
-  it('cast by P2 in p2Opening: the turn passes to P1; P2 never re-enters p2Opening (RD-137)', () => {
+  it('cast by P2 in p2Opening: P2 stays on turn in a normal turn; never re-enters p2Opening', () => {
     // P1 (seat 0) has 3 creatures; P2 (seat 1) has no Base yet.
     const s = stateOf({
       hands: [[cr('green', 4)], [spell(4), cr('orange', 1)]],
@@ -269,7 +281,8 @@ describe('S-04: exactly 3 creatures return to their owners; the turn ends (RD-12
       phase: { kind: 'p2Opening', active: 1 },
     });
     const { state } = apply(s, 1, ps(spell(4)));
-    expect(state.phase).toEqual({ kind: 'turn', active: 0, equalEndBy: 1 }); // 0 = 0 (RD-169)
+    // RD-172: P2 keeps the turn; P1 lost its Base, so p2Opening is over (RD-144).
+    expect(state.phase).toEqual({ kind: 'turn', active: 1 });
     expect(state.stackEmptiedBySpell).toBe(true);
     expect(state.board.zones.hands[0]).toEqual([
       cr('green', 4),
@@ -277,7 +290,11 @@ describe('S-04: exactly 3 creatures return to their owners; the turn ends (RD-12
       cr('red', 2),
       cr('red', 3),
     ]);
-    const based = apply(state, 0, { type: 'playCreature', cardId: cr('green', 4) });
+    expect(legalCommands(ctx, state, 1).some((x) => x.type === 'nullify')).toBe(false);
+    const passed = apply(state, 1, { type: 'endTurn' }).state;
+    expect(passed.phase).toEqual({ kind: 'turn', active: 0, equalEndBy: 1 }); // 0 = 0 (RD-169)
+    expect(passed.turnLocks).toBeUndefined();
+    const based = apply(passed, 0, { type: 'playCreature', cardId: cr('green', 4) });
     expect(based.events[0]).toMatchObject({ role: 'midRoundBase' });
     const p2 = apply(based.state, 0, { type: 'endTurn' }).state;
     expect(p2.phase).toEqual({ kind: 'turn', active: 1 });
@@ -286,26 +303,23 @@ describe('S-04: exactly 3 creatures return to their owners; the turn ends (RD-12
   });
 
   it('RD-138 (user): only the emptied seat places the new Base, in its own turn', () => {
-    // Seat 0's S-11 returns seat 1's only creature and ends the turn (RD-118 / RD-121).
+    // Seat 0's S-11 returns seat 1's only creature (RD-118); seat 0 stays on turn (RD-172).
     const s = stateOf({
       hands: [[spell(11), cr('blue', 2)], [cr('green', 4)]],
       stacks: [[cr('blue', 1)], [cr('red', 2)]],
     });
     const emptied = apply(s, 0, ps(spell(11))).state;
     expect(emptied.board.zones.stacks[1]).toEqual([]);
-    expect(emptied.phase).toEqual({ kind: 'turn', active: 1 });
-    // Not seat 0's turn: it cannot place anything now.
-    expectReject(emptied, 0, { type: 'playCreature', cardId: cr('blue', 2) }, 'NOT_YOUR_TURN');
-    // Seat 1, in its own turn, places the new Base (any creature, RD-105). (Ending its turn
-    // without one would lose the round while behind, RD-169.)
-    const based = apply(emptied, 1, { type: 'playCreature', cardId: cr('green', 4) });
-    expect(based.events[0]).toMatchObject({ seat: 1, role: 'midRoundBase' });
-    expect(based.state.board.zones.stacks[1]).toEqual([cr('green', 4)]);
-    // Seat 0's next play goes onto its OWN stack.
-    const back = apply(based.state, 1, { type: 'endTurn' }).state;
-    const own = apply(back, 0, { type: 'playCreature', cardId: cr('blue', 2) });
+    expect(emptied.phase).toEqual({ kind: 'turn', active: 0 });
+    // Seat 0's next play goes onto its OWN stack, never onto the emptied one.
+    const own = apply(emptied, 0, { type: 'playCreature', cardId: cr('blue', 2) });
     expect(own.events[0]).toMatchObject({ seat: 0, role: 'stack' });
-    expect(own.state.board.zones.stacks).toEqual([
+    expect(own.state.board.zones.stacks).toEqual([[cr('blue', 1), cr('blue', 2)], []]);
+    // Seat 1, in its own turn, places the new Base (any creature, RD-105).
+    const back = apply(own.state, 0, { type: 'endTurn' }).state;
+    const based = apply(back, 1, { type: 'playCreature', cardId: cr('green', 4) });
+    expect(based.events[0]).toMatchObject({ seat: 1, role: 'midRoundBase' });
+    expect(based.state.board.zones.stacks).toEqual([
       [cr('blue', 1), cr('blue', 2)],
       [cr('green', 4)],
     ]);
@@ -347,14 +361,16 @@ describe('S-04: exactly 3 creatures return to their owners; the turn ends (RD-12
     expect(state.phase).toEqual({ kind: 'turn', active: 0 });
   });
 
-  it('the forced End Turn is evaluated like End Turn (RD-169): 0 = 0 passes the turn', () => {
-    // Seat 0 (behind) empties the field: equal ATK -> the turn passes, marked as an equal hand-over.
+  it('RD-172: no forced End Turn; the later End Turn at 0 = 0 passes the turn (RD-169)', () => {
     const s = stateOf({
       hands: [[spell(4)], []],
       stacks: [[cr('red', 1)], [cr('blue', 1), cr('blue', 2)]],
     });
-    const { state } = apply(s, 0, ps(spell(4)));
-    expect(state.phase).toEqual({ kind: 'turn', active: 1, equalEndBy: 0 });
+    const { state, events } = apply(s, 0, ps(spell(4)));
+    expect(types(events)).not.toContain('turnEnded');
+    expect(state.phase).toEqual({ kind: 'turn', active: 0 });
+    const ended = apply(state, 0, { type: 'endTurn' }).state;
+    expect(ended.phase).toEqual({ kind: 'turn', active: 1, equalEndBy: 0 });
   });
 
   it('removeFromStacks compares liveness once: no intermediate activation', () => {
@@ -596,7 +612,7 @@ describe('S-15: -50 on the opponent whole stack until round end', () => {
 
   it('RD-134 (user): a new Base on the emptied stack starts without -50', () => {
     // Seat 1's single creature carries the S-15 stack effect (S-15 in the graveyard); seat 0's
-    // S-11 returns it to the hand (RD-118) and ends the turn.
+    // S-11 returns it to the hand (RD-118); seat 0 then ends its turn (RD-172).
     const base = stateOf({
       hands: [[spell(11)], []],
       stacks: [[cr('blue', 1)], [cr('red', 2)]],
@@ -614,8 +630,10 @@ describe('S-15: -50 on the opponent whole stack until round end', () => {
     const { state, events } = apply(s, 0, ps(spell(11)));
     expect(events).toContainEqual({ type: 'stackEffectEnded', effect });
     expect(state.board.stackEffects).toEqual([]);
-    expect(state.phase).toEqual({ kind: 'turn', active: 1 });
-    const based = apply(state, 1, { type: 'playCreature', cardId: cr('red', 2) });
+    expect(state.phase).toEqual({ kind: 'turn', active: 0 });
+    // The lock on red-2 (seat 1's, RD-172) clears with seat 0's End Turn.
+    const back = apply(state, 0, { type: 'endTurn' }).state;
+    const based = apply(back, 1, { type: 'playCreature', cardId: cr('red', 2) });
     expect(based.events[0]).toMatchObject({ role: 'midRoundBase' });
     expect(stackAtk(ctx.cards, based.state.board, 1)).toBe(20);
   });
@@ -777,10 +795,8 @@ describe('RD-139: an armed Link Up lapses when its creature leaves the field', (
       sourceCardId: cr('red', 2),
     });
     expect(after.state.board.linkUpPending).toEqual([false, false]);
-    // Seat 1 plays a mid-round Base so that its End Turn passes the turn (RD-169).
-    const mid = apply(after.state, 1, { type: 'playCreature', cardId: cr('violet', 1) }, 1, c);
-    const back = apply(mid.state, 1, { type: 'endTurn' }, 1, c).state;
-    const based = apply(back, 0, { type: 'playCreature', cardId: cr('green', 5) }, 1, c);
+    // RD-172: seat 0 stays on turn and places its mid-round Base at once (green-5 is not locked).
+    const based = apply(after.state, 0, { type: 'playCreature', cardId: cr('green', 5) }, 1, c);
     expect(types(based.events)).not.toContain('linkUpConsumed');
     expect(based.events).toContainEqual(
       expect.objectContaining({ type: 'creatureStacked', viaLinkUp: false }),

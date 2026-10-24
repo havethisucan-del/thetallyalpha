@@ -190,6 +190,34 @@ describe('narrateEvents', () => {
     ]);
   });
 
+  it('notes a replay lock (RD-172) once, as a detail of the step that returned the card', () => {
+    const entries = log(
+      [
+        { type: 'spellPlayed', seat: 0, cardId: 'c05', branch: 'primary' },
+        {
+          type: 'creatureRemoved',
+          seat: 1,
+          cardId: 'c07',
+          position: 0,
+          to: { zone: 'hand', seat: 1 },
+        },
+        { type: 'replayLocked', seat: 1, cardId: 'c07' },
+        { type: 'spellResolved', seat: 0, cardId: 'c05', destination: 'graveyard' },
+      ],
+      // Without a line of its own step it still gets a sentence.
+      [{ type: 'replayLocked', seat: 0, cardId: 'c01' }],
+    );
+    const lines = narrateEvents(entries, pub, 0);
+    expect(lines.map((line) => line.text)).toEqual([
+      'You cast "Grave Bargain" (primary effect).',
+      "Blue 2 (ATK 3) left opponent's stack to opponent's hand.",
+      "Your Orange 3 (ATK 4) can't be played again this turn.",
+    ]);
+    expect(lines[1]?.details).toEqual([
+      "Opponent's Blue 2 (ATK 3) can't be played again this turn.",
+    ]);
+  });
+
   it("states the spell's Condition verdict and which effect fired", () => {
     const entries = log(
       [{ type: 'spellPlayed', seat: 1, cardId: 'c05', branch: 'secondary' }],

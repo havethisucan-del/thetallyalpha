@@ -98,8 +98,8 @@ describe('S-05 Wild Link (RD-117, RD-108)', () => {
   });
 });
 
-describe('S-07 Changing of the Guard (RD-108, RD-127, RD-103)', () => {
-  it('old Leader into the deck (shuffled), chosen creature in its place; the turn ends', () => {
+describe('S-07 Changing of the Guard (RD-108, RD-127, RD-172)', () => {
+  it('old Leader into the deck (shuffled), chosen creature in its place; the turn goes on', () => {
     const s = stateOf({
       hands: [[spell(7), Y2, G4], [V1]],
       stacks: [[R1, R2], [B1]],
@@ -114,8 +114,6 @@ describe('S-07 Changing of the Guard (RD-108, RD-127, RD-103)', () => {
       'creatureStacked',
       'deckShuffled',
       'spellResolved',
-      'turnEnded',
-      'turnStarted',
     ]);
     expect(events[1]).toEqual({
       type: 'creatureRemoved',
@@ -127,7 +125,10 @@ describe('S-07 Changing of the Guard (RD-108, RD-127, RD-103)', () => {
     expect(events[2]).toMatchObject({ cardId: G4, position: 1 });
     expect(state.board.zones.stacks[0]).toEqual([R1, G4]);
     expect([...state.board.zones.deck].sort()).toEqual([R2, Y1, Y3].sort());
-    expect(state.phase).toEqual({ kind: 'turn', active: 1 });
+    // RD-172: the turn does not end; nothing returned to a hand, so nothing is locked.
+    expect(state.phase).toEqual({ kind: 'turn', active: 0 });
+    expect(state.turnNumber).toBe(s.turnNumber);
+    expect(state.turnLocks).toBeUndefined();
   });
 
   it('RD-127: atomic; the creature below never activates, only the new Leader does', () => {
@@ -386,8 +387,8 @@ describe('S-17 Hostile Takeover (RD-110, RD-131): two chained choices end to end
   });
 });
 
-describe('S-18 Mutual Withdrawal (RD-119, RD-121)', () => {
-  it('enemy then own creature; both return to their owners at once; the turn ends', () => {
+describe('S-18 Mutual Withdrawal (RD-119, RD-172)', () => {
+  it('enemy then own creature; both return at once, replay-locked; the turn goes on', () => {
     const s = stateOf({
       hands: [[spell(18)], []],
       stacks: [
@@ -404,14 +405,40 @@ describe('S-18 Mutual Withdrawal (RD-119, RD-121)', () => {
       'spellChoiceMade',
       'creatureRemoved',
       'creatureRemoved',
+      'replayLocked',
+      'replayLocked',
       'spellResolved',
-      'turnEnded',
-      'roundOver',
     ]);
     expect(state.board.zones.stacks).toEqual([[R2], [B1, B2, B5]]);
     expect(state.board.zones.hands).toEqual([[R1], [B3]]);
-    // RD-169: the turn-ending spell leaves seat 0 behind (20 vs 80): the round ends.
-    expect(state.phase).toMatchObject({ kind: 'roundOver', reason: 'opponentAhead', seat: 0 });
+    // RD-172: seat 0 keeps the turn (even while behind, 20 vs 80); both returned are locked.
+    expect(state.phase).toEqual({ kind: 'turn', active: 0 });
+    expect(state.turnLocks).toEqual([
+      { seat: 0, cardId: R1 },
+      { seat: 1, cardId: B3 },
+    ]);
+    expectReject(state, 0, play(R1), 'CARD_REPLAY_LOCKED');
+    expect(legalCommands(ctx, state, 0).some((c) => c.type === 'playCreature')).toBe(false);
+    // Ending the turn while behind ends the round (RD-169).
+    const ended = apply(state, 0, END).state;
+    expect(ended.phase).toMatchObject({ kind: 'roundOver', reason: 'opponentAhead', seat: 0 });
+  });
+
+  it('RD-172 / RD-145: a later spell in the same turn does not place the returned creature', () => {
+    const s = stateOf({
+      hands: [[spell(18), spell(5)], []],
+      stacks: [
+        [R1, R2],
+        [B1, B2, B3, B5],
+      ],
+    });
+    const second = apply(apply(s, 0, ps(spell(18))).state, 0, choose(1, [B3])).state;
+    const after = apply(second, 0, choose(2, [R1])).state;
+    expect(after.board.zones.hands[0]).toEqual([spell(5), R1]);
+    // S-05 (enemy level 5 present): R1 is the only hand creature, but locked -> Secondary.
+    const { state, events } = apply(after, 0, ps(spell(5)));
+    expect(events[0]).toMatchObject({ branch: 'secondary' });
+    expect(state.board.zones.hands[0]).toEqual([R1]);
   });
 
   it('a single own creature is chosen automatically after the enemy choice', () => {
@@ -461,7 +488,7 @@ describe('RD-142: no option count for handCreature in the public data', () => {
 describe('RD-143: a spell that touched P1 stack bans Nullify for the round', () => {
   const nullifier = cr(beatenBy(DEFAULT_COLOR_RULES, 'red'), 2);
 
-  /** P2 (seat 1) in a reopened opening response: S-11 removes P1's Base; turns pass back. */
+  /** P2 (seat 1) in a reopened opening response: S-11 removes P1's Base; P2 keeps the turn. */
   function reopened(): RoundState {
     const s = stateOf({
       hands: [[], [spell(11), nullifier]],
@@ -469,14 +496,12 @@ describe('RD-143: a spell that touched P1 stack bans Nullify for the round', () 
       phase: { kind: 'p2Opening', active: 1 },
     });
     const mid = apply(s, 1, ps(spell(11))).state;
-    const afterRepel = apply(mid, 1, choose(1, [R1])).state; // S-11 ends P2's turn (RD-121)
+    const afterRepel = apply(mid, 1, choose(1, [R1])).state;
     expect(afterRepel.p1StackTouchedBySpell).toBe(true);
-    // RD-169: P2 is behind (0 vs 20) when S-11 ends its turn, so the round ends here.
-    expect(afterRepel.phase).toMatchObject({ kind: 'roundOver', reason: 'opponentAhead' });
-    // Forged: the same board in a reopened opening response (reachable when P2 is not behind).
-    const back: RoundState = deepFreeze({ ...afterRepel, phase: { kind: 'p2Opening', active: 1 } });
-    expect(back.board.zones.stacks[0]).toEqual([R2]); // RD-79 alone would allow Nullify now
-    return back;
+    // RD-172: the turn does not end; P1 still has a Base, so P2 stays in p2Opening (RD-144).
+    expect(afterRepel.phase).toEqual({ kind: 'p2Opening', active: 1 });
+    expect(afterRepel.board.zones.stacks[0]).toEqual([R2]); // RD-79 alone would allow Nullify now
+    return afterRepel;
   }
 
   it('flag set -> Nullify rejected with NULLIFY_NOT_ALLOWED and not offered', () => {

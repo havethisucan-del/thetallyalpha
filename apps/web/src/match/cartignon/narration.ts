@@ -224,6 +224,17 @@ class Narrator {
           true,
         );
         return;
+      case 'replayLocked':
+        // RD-172 (S-04 / S-11 / S-18, also S-09 / S-16): a creature returned to hand this turn.
+        // A detail of the step's line (the cast or the card leaving the stack); never its own
+        // sentence next to it.
+        this.#detail(
+          entry,
+          this.#side(event.seat),
+          `${capitalize(this.#whose(event.seat))} ${this.#name(event.cardId)} can't be played again this turn.`,
+          true,
+        );
+        return;
       case 'spellResolved':
       case 'turnEnded':
         this.closeSpell();

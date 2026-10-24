@@ -66,6 +66,11 @@ export interface AttachedSpell {
   /** The seat that played the spell. */
   readonly seat: Seat;
   readonly targetCardId: CardId;
+  /**
+   * The effect that attached the card (RD-174): the Primary or the Secondary (a trap's lapse or
+   * fired Secondary). Absent only on boards saved before this field existed.
+   */
+  readonly branch?: 'primary' | 'secondary';
 }
 
 /**

@@ -33,7 +33,7 @@ import {
 } from './spell-kit.js';
 import { deepFreeze } from './test-fixtures.js';
 
-// R4c-5: S-19 Gambit Prism (RD-108, RD-112, RD-119..RD-121, RD-152, RD-156..RD-161).
+// R4c-5: S-19 Gambit Prism (RD-108, RD-112, RD-119, RD-120, RD-152, RD-156..RD-161, RD-172).
 // Placeholder creatures have atk = level * 10 and no modifiers unless stated.
 
 const S19 = spell(19);
@@ -308,19 +308,19 @@ describe('S-19 spell: the opponent plays it (RD-112, RD-119)', () => {
     expect(state.board.zones.hands[1]).toEqual([G1, G5]);
   });
 
-  it('best-effort S-07 without a Leading creature: no replacement, the turn ends (RD-161)', () => {
+  it('best-effort S-07 without a Leading creature: no replacement; the turn goes on (RD-172)', () => {
     const S07 = spell(7);
     const s = gambit([S07], [[R1], []], [S19], [B3]);
     const { state, events } = apply(s, 0, ps(S19));
     expect(state.pendingChoice).toBeUndefined();
     expect(state.board.zones.hands[1]).toEqual([B3]);
-    expect(types(events).slice(-2)).toEqual(['turnEnded', 'turnStarted']);
-    expect(state.phase).toMatchObject({ active: 1 });
+    expect(types(events)).not.toContain('turnEnded');
+    expect(state.phase).toEqual({ kind: 'turn', active: 0 });
   });
 });
 
 describe('S-19 spell with a choice (RD-160)', () => {
-  it('the nested spell caster (the S-19 caster opponent) chooses; then the turn ends (RD-121)', () => {
+  it('the nested spell caster chooses; the returned creature is locked for the seat on turn', () => {
     // S-11: seat 1 returns an enemy (seat 0) level 1-3 creature; two candidates -> a choice.
     const S11 = spell(11);
     const played = apply(gambit([S11]), 0, ps(S19));
@@ -343,23 +343,26 @@ describe('S-19 spell with a choice (RD-160)', () => {
     expect(state.board.zones.hands[0]).toEqual([R1]);
     expect(types(events)[0]).toBe('spellChoiceMade');
     expect(find(events, 'spellChoiceMade')).toMatchObject([{ seat: 1, selection: [R1] }]);
-    expect(types(events).slice(-4)).toEqual([
-      'spellResolved',
-      'spellResolved',
-      'turnEnded',
-      'turnStarted',
-    ]);
+    expect(types(events).slice(-3)).toEqual(['replayLocked', 'spellResolved', 'spellResolved']);
     expect(find(events, 'spellResolved')).toEqual([
       { type: 'spellResolved', seat: 1, cardId: S11, destination: 'graveyard' },
       { type: 'spellResolved', seat: 0, cardId: S19, destination: 'graveyard' },
     ]);
-    // RD-121: the turn in progress (seat 0's) ends.
-    expect(find(events, 'turnEnded')).toEqual([{ type: 'turnEnded', seat: 0 }]);
-    expect(state.phase).toEqual({ kind: 'turn', active: 1 });
+    // RD-172: the turn in progress (seat 0's) goes on; R1 is locked for its owner, seat 0, even
+    // though the kernel caster was seat 1.
+    expect(find(events, 'turnEnded')).toEqual([]);
+    expect(state.phase).toEqual({ kind: 'turn', active: 0 });
+    expect(state.turnLocks).toEqual([{ seat: 0, cardId: R1 }]);
+    expectReject(state, 0, play(R1), 'CARD_REPLAY_LOCKED');
+    expect(legalCommands(ctx, state, 0)).not.toContainEqual(play(R1));
     expect(state.board.zones.graveyard).toEqual([S11, S19]);
+    // The lock clears with seat 0's End Turn (20 vs 10: the turn passes).
+    const ended = apply(state, 0, END).state;
+    expect(ended.phase).toEqual({ kind: 'turn', active: 1 });
+    expect(ended.turnLocks).toBeUndefined();
   });
 
-  it('S-04 drawn through S-19 ends the S-19 caster turn, whatever the field count (RD-121)', () => {
+  it('S-04 drawn through S-19: whatever the field count; both seats locked, turn goes on', () => {
     const S04 = spell(4);
     const { state, events } = apply(
       gambit(
@@ -375,9 +378,21 @@ describe('S-19 spell with a choice (RD-160)', () => {
     expect(state.board.zones.stacks).toEqual([[], []]);
     expect(state.board.zones.hands[0]).toEqual(expect.arrayContaining([R1, R2]));
     expect(state.board.zones.hands[1]).toEqual(expect.arrayContaining([B1, B2]));
-    expect(find(events, 'turnEnded')).toEqual([{ type: 'turnEnded', seat: 0 }]);
-    // 0 = 0 after the field is emptied: an equal hand-over (RD-169).
-    expect(state.phase).toEqual({ kind: 'turn', active: 1, equalEndBy: 0 });
+    expect(find(events, 'turnEnded')).toEqual([]);
+    expect(state.phase).toEqual({ kind: 'turn', active: 0 });
+    // RD-172: the S-04 caster is seat 1 (its stack first); every creature locked for its owner.
+    expect(state.turnLocks).toEqual([
+      { seat: 1, cardId: B1 },
+      { seat: 1, cardId: B2 },
+      { seat: 0, cardId: R1 },
+      { seat: 0, cardId: R2 },
+    ]);
+    expectReject(state, 0, play(R1), 'CARD_REPLAY_LOCKED');
+    expect(legalCommands(ctx, state, 0).some((c) => c.type === 'playCreature')).toBe(false);
+    // 0 = 0 after the field is emptied: End Turn is an equal hand-over (RD-169); locks clear.
+    const ended = apply(state, 0, END).state;
+    expect(ended.phase).toEqual({ kind: 'turn', active: 1, equalEndBy: 0 });
+    expect(ended.turnLocks).toBeUndefined();
   });
 });
 
@@ -512,10 +527,11 @@ describe('S-19 drawn by S-19 (nested frames)', () => {
     expect(
       find(events, 'spellResolved').map((e) => e.type === 'spellResolved' && e.cardId),
     ).toEqual([S11, S19B, S19]);
-    // RD-121: S-11 ends the turn in progress (seat 0's); seat 1 acts next.
-    expect(find(events, 'turnEnded')).toEqual([{ type: 'turnEnded', seat: 0 }]);
+    // RD-172: S-11 does not end the turn in progress (seat 0's); B2 is locked for seat 1.
+    expect(find(events, 'turnEnded')).toEqual([]);
+    expect(state.turnLocks).toEqual([{ seat: 1, cardId: B2 }]);
     expect(state.pendingChoice).toBeUndefined();
-    expect(activeSeat(state)).toBe(1);
+    expect(activeSeat(state)).toBe(0);
     expectConserved(state);
   });
 

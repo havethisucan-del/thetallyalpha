@@ -36,17 +36,17 @@ import { findCard, type CardId, type Zones } from './zones.js';
  *      This holds for the Secondary too (RD-153). A stack-level effect (S-15, RD-134) does not
  *      attach the card; it goes to the graveyard.
  *      A trap (S-12, S-16; kernel `armTrap`) is armed instead (`Board.armedTraps`, traps.ts).
- *   4. The player stays on turn (RD-14), unless the Primary requested End Turn (RD-121); the
- *      round layer applies that.
+ *   4. The player stays on turn (RD-14). RD-172: no spell ends the turn (the former RD-121 turn
+ *      end of S-04, S-07, S-11 and S-18 became replay locks on the returned creatures).
  *
- * S-19 Gambit Prism (R4c-5, RD-112, RD-119, RD-120, RD-121, RD-157..RD-161): its Primary draws
+ * S-19 Gambit Prism (R4c-5, RD-112, RD-119, RD-120, RD-157..RD-161): its Primary draws
  * a random graveyard card (kernel `drawRandomFromGraveyard`). A creature is placed on the caster's
  * stack (`placeOnStack`). A spell is handed to the opponent (`playForOpponent`), who plays it at
  * once as a nested frame: caster and opponent swap roles, best-effort mode (condition ignored,
  * Primary as far as possible, never the Secondary). The S-19 card waits in no zone (`GambitFrame`
  * in the continuation) until the nested spell has finished, then goes to the graveyard. A nested
- * choice is answered by the nested spell's caster; its turn-ending request ends the current turn;
- * a trap it arms on the seat not on turn is dormant until that turn ends (RD-157).
+ * choice is answered by the nested spell's caster; replay locks it makes hold for the seat that
+ * owns the returned creature (RD-172); a trap it arms on the seat not on turn is dormant until that turn ends (RD-157).
  *
  * All functions are pure: inputs are never mutated; state is JSON-serializable.
  */
@@ -252,25 +252,24 @@ export function spellBranch(
 /**
  * The outcome of one spell segment: either the spell finished (`suspended` absent), or it is
  * waiting for a choice (`suspended` set; the round layer turns it into `RoundState.pendingChoice`
- * and assigns the choice id). `endTurnRequested` is meaningful only when finished.
+ * and assigns the choice id). RD-172: a spell never ends the turn.
  */
 export interface SpellOutcome {
   readonly board: Board;
   readonly events: readonly RoundEvent[];
-  readonly endTurnRequested: boolean;
   readonly suspended?: Omit<PendingChoice, 'choiceId'>;
-  /** Replay locks made in this segment (S-09); the round layer adds them to `turnLocks`. */
+  /** Replay locks made in this segment (S-09, RD-172); the round layer adds them to `turnLocks`. */
   readonly locks: readonly TurnLock[];
 }
 
 /**
  * Kernel and caster data kept in the continuation next to the handler's own scratch, so that a
- * suspend/resume boundary loses nothing. Internal to this module; never projected.
+ * suspend/resume boundary loses nothing. Internal to this module; never projected. RD-172: a
+ * stored scratch from before RD-172 may still carry an `endTurnRequested` field; it is ignored.
  */
 interface ContinuationScratch {
   readonly handler: JsonValue;
   readonly caster: Seat;
-  readonly endTurnRequested: boolean;
   readonly attachedTo: CardId | null;
   /** `armTrap` before the suspension (R4c-4). Absent = null. */
   readonly armedOn?: Seat;
@@ -368,6 +367,7 @@ function finishSpell(
   events: RoundEvent[],
   def: SpellDef,
   turnSeat: Seat,
+  branch: SpellBranch,
 ): Board {
   if (done.armedOn !== null) {
     // RD-101 / RD-130: armed on that side, in no zone, visible with identity.
@@ -394,7 +394,10 @@ function finishSpell(
     });
     return {
       ...done.board,
-      attachedSpells: [...done.board.attachedSpells, { cardId, seat, targetCardId: target }],
+      attachedSpells: [
+        ...done.board.attachedSpells,
+        { cardId, seat, targetCardId: target, branch }, // RD-174
+      ],
     };
   }
   // RD-14: spent spell -> graveyard.
@@ -440,6 +443,7 @@ function settle(
   yielded: SpellChoiceRequest | undefined,
   mode: FrameMode,
   events: RoundEvent[],
+  branch: SpellBranch,
 ): SpellOutcome {
   const done = session.finish();
   events.push(...done.events);
@@ -447,7 +451,6 @@ function settle(
     const scratch: ContinuationScratch = {
       handler: yielded.scratch,
       caster,
-      endTurnRequested: done.endTurnRequested,
       attachedTo: done.attachedTo,
       ...(done.armedOn === null ? {} : { armedOn: done.armedOn }),
       ...(mode.bestEffort ? { bestEffort: true } : {}),
@@ -456,7 +459,6 @@ function settle(
     return {
       board: done.board,
       events,
-      endTurnRequested: false,
       locks: done.locks,
       suspended: {
         // R4c-2: the caster always answers. R4c-5 (RD-160): through S-19 that is the caster of
@@ -483,15 +485,11 @@ function settle(
       { bestEffort: true, via: [...mode.via, { cardId, caster }] },
       events,
     );
-    return {
-      ...inner,
-      endTurnRequested: inner.endTurnRequested || done.endTurnRequested,
-      locks: [...done.locks, ...inner.locks],
-    };
+    return { ...inner, locks: [...done.locks, ...inner.locks] };
   }
-  const finished = finishSpell(done, caster, cardId, events, def, sc.turnSeat);
+  const finished = finishSpell(done, caster, cardId, events, def, sc.turnSeat, branch);
   const board = finishGambitFrames(finished, mode.via, events);
-  return { board, events, endTurnRequested: done.endTurnRequested, locks: done.locks };
+  return { board, events, locks: done.locks };
 }
 
 /**
@@ -538,7 +536,7 @@ function runFrame(
   } else {
     runSecondary(session.kernel, def.secondary);
   }
-  return settle(sc, def, session, caster, cardId, yielded, mode, events);
+  return settle(sc, def, session, caster, cardId, yielded, mode, events, branch);
 }
 
 /**
@@ -591,7 +589,6 @@ export function resumeSpell(
     locks,
   };
   const carry: KernelCarry = {
-    endTurnRequested: scratch.endTurnRequested,
     attachedTo: scratch.attachedTo,
     armedOn: scratch.armedOn ?? null,
   };
@@ -622,5 +619,6 @@ export function resumeSpell(
   );
   const yielded = drive(handler, session.kernel, next);
   const mode: FrameMode = { bestEffort: scratch.bestEffort === true, via };
-  return settle(sc, def, session, scratch.caster, pending.cardId, yielded, mode, events);
+  // Only a Primary can suspend (the Secondary runs without choices), so a resumed spell is Primary.
+  return settle(sc, def, session, scratch.caster, pending.cardId, yielded, mode, events, 'primary');
 }

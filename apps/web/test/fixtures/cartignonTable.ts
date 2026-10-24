@@ -55,6 +55,7 @@ function publicView() {
       c01: 'orange-3',
       c02: 'spell-x',
       c03: 'blue-2',
+      c04: 'blue-2',
       c10: 'orange-3',
       c20: 'blue-2',
       c21: 'orange-3',
@@ -76,6 +77,8 @@ export function tableModel(
   options: {
     activeSeat?: 0 | 1;
     priv?: Record<string, unknown>;
+    /** Merged over the public `board` (e.g. attached spells). */
+    board?: Record<string, unknown>;
   } = {},
 ): TableModel {
   const activeSeat = options.activeSeat ?? 0;
@@ -86,15 +89,19 @@ export function tableModel(
     rulesId: 'cartignon',
     rulesVersion: '1',
     phase: { id: 'turn', activeSeat, turnSeat: 0 },
-    public: publicView(),
+    public: (() => {
+      const pub = publicView();
+      return { ...pub, board: { ...pub.board, ...options.board } };
+    })(),
     private: {
       seat: 0,
-      hand: ['c01', 'c02', 'c03'],
+      hand: ['c01', 'c02', 'c03', 'c04'],
       lookingAt: null,
       pendingChoiceView: null,
       legal: [
         { type: 'playCreature', cardId: 'c01' },
-        { type: 'nullify', cardId: 'c01' },
+        // RD-173: a card that can Nullify has Nullify as its only command.
+        { type: 'nullify', cardId: 'c03' },
         { type: 'playSpell', cardId: 'c02' },
         { type: 'endTurn' },
         { type: 'mulligan' },

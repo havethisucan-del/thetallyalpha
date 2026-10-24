@@ -302,7 +302,7 @@ describe('bounded legalCommands for multi-select choices (S-17 handToDeck)', () 
 });
 
 describe('replay locks are cleared at every turn end (RD-145)', () => {
-  it('S-09 then a turn-ending S-07 in the same turn clears the lock', () => {
+  it('S-09 then S-07 in the same turn: the turn goes on, the lock holds until End Turn (RD-172)', () => {
     const s = stateOf({
       hands: [[spell(9), spell(7), Y2, G4], []],
       stacks: [[R1, R2, R3], [B1]],
@@ -310,8 +310,9 @@ describe('replay locks are cleared at every turn end (RD-145)', () => {
     const locked = applyAnsweringSingle(s, 0, ps(spell(9))).state; // only Y2 is lower (RD-162: answered)
     expect(locked.turnLocks).toEqual([{ seat: 0, cardId: R3 }]);
     const { state } = applyAnsweringSingle(locked, 0, ps(spell(7))); // only G4 is placeable
-    expect(state.phase).toEqual({ kind: 'turn', active: 1 });
-    expect(state.turnLocks).toBeUndefined();
+    expect(state.phase).toEqual({ kind: 'turn', active: 0 });
+    expect(state.turnLocks).toEqual([{ seat: 0, cardId: R3 }]);
+    expect(apply(state, 0, END).state.turnLocks).toBeUndefined();
   });
 
   const lockedState = (stacks: readonly [CardId[], CardId[]]): RoundState =>

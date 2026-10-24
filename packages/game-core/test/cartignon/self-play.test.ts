@@ -33,14 +33,14 @@ describe('self-play with the real catalog (R5b)', () => {
 
   // RQ-34: accepted by the user 2026-10-19 (no per-turn play limit; the RD-25 clock bounds it).
   it('documents a rules gap: two Grave Draw spells can be swapped forever within one turn', () => {
-    // Seed 330 (was seed 13 before the xoshiro128** RNG, ADR-0009), eager without a play budget:
-    // the active seat alternates S-03 and S-11 (both played as their
-    // "Grave Draw" Secondary). Each draws the other from the graveyard before landing there itself
+    // Seed 54 (seed 330 until RD-172 / RD-173 changed the trajectories; seed 13 before the
+    // xoshiro128** RNG, ADR-0009), eager without a play budget: the active seat alternates S-02
+    // and S-03, each drawing the other back from the graveyard before landing there itself
     // (spells.ts: the spent spell goes to the graveyard after resolving), so hand, deck and
     // graveyard sizes never change. Nothing bounds plays per turn (RD-13, RD-83); only RD-25's
     // turn clock would. If a rule change bounds this, update this test.
     const r = playMatch({
-      seed: 330,
+      seed: 54,
       policy: 'eager',
       eagerPlayBudget: Number.POSITIVE_INFINITY,
       maxSteps: 3_000,
@@ -48,7 +48,7 @@ describe('self-play with the real catalog (R5b)', () => {
     });
     expect(r.end).toBe('stepCap');
     expect(r.rounds).toBe(0);
-    expect(r.trace.map((t) => t.spellId).sort()).toEqual(['S-03', 'S-03', 'S-11', 'S-11']);
+    expect(r.trace.map((t) => t.spellId).sort()).toEqual(['S-02', 'S-02', 'S-03', 'S-03']);
     expect(new Set(r.trace.map((t) => `${t.roundNumber}:${t.turnNumber}`)).size).toBe(1);
   });
 

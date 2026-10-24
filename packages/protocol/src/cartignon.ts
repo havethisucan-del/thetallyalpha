@@ -247,7 +247,14 @@ export const cartignonPublicViewSchema = z.strictObject({
     stacks: z.tuple([cardIdsSchema, cardIdsSchema]),
     attachedEffects: z.array(attachedEffectSchema).max(256),
     attachedSpells: z
-      .array(z.strictObject({ cardId: cardIdSchema, seat: seatSchema, targetCardId: cardIdSchema }))
+      .array(
+        z.strictObject({
+          cardId: cardIdSchema,
+          seat: seatSchema,
+          targetCardId: cardIdSchema,
+          branch: z.enum(['primary', 'secondary']).optional(),
+        }),
+      )
       .max(54),
     stackEffects: z.array(stackEffectSchema).max(256),
     copiedModifiers: z.array(copiedModifierSchema.extend({ live: z.boolean() })).max(256),

@@ -74,10 +74,10 @@ describe('guards: no round end, cleanup or start with a pending choice (programm
   });
 });
 
-describe('RD-169: an S-11 turn end finishes the round only after the choice', () => {
-  it('roundOver follows chooseSpellOption; finishRound runs; choice ids carry into round 2', () => {
-    // Seat 0 is behind. S-11 ends seat 0's turn while it is still behind, which ends the round
-    // (RD-169: a turn-ending spell is evaluated like End Turn).
+describe('RD-172: S-11 never ends the turn; the later End Turn finishes the round', () => {
+  it('no roundOver after chooseSpellOption; End Turn while behind ends it; choice ids carry', () => {
+    // Seat 0 is behind. S-11 no longer ends the turn (RD-172); seat 0's End Turn while still
+    // behind ends the round (RD-169).
     const round = stateOf({
       hands: [[spell(11), cr('green', 1)], [cr('violet', 1)]],
       stacks: [[cr('red', 1)], [cr('blue', 1), cr('blue', 2), cr('blue', 3)]],
@@ -90,11 +90,15 @@ describe('RD-169: an S-11 turn end finishes the round only after the choice', ()
     expect(types(played.events)).not.toContain('roundOver');
     expect(played.state.status).toEqual({ kind: 'playing' });
 
-    const done = applyMatchCommand(ctx, played.state, 0, choose(1, [cr('blue', 3)]), rng(4));
+    const chosen = applyMatchCommand(ctx, played.state, 0, choose(1, [cr('blue', 3)]), rng(4));
+    if (!chosen.ok) throw new Error(chosen.code);
+    expect(types(chosen.events)[0]).toBe('spellChoiceMade');
+    expect(types(chosen.events)).not.toContain('roundOver');
+    expect(chosen.state.round.phase).toEqual({ kind: 'turn', active: 0 });
+    const done = applyMatchCommand(ctx, chosen.state, 0, { type: 'endTurn' }, rng(4));
     if (!done.ok) throw new Error(done.code);
     const t = types(done.events);
-    expect(t[0]).toBe('spellChoiceMade');
-    expect(t.indexOf('roundOver')).toBeGreaterThan(t.indexOf('spellResolved'));
+    expect(t.indexOf('roundOver')).toBeGreaterThan(t.indexOf('turnEnded'));
     expect(t.indexOf('roundResolved')).toBeGreaterThan(t.indexOf('roundOver'));
     expect(done.events).toContainEqual(
       expect.objectContaining({ type: 'roundOver', reason: 'opponentAhead', seat: 0 }),

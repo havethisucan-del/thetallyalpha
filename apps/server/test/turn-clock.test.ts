@@ -322,11 +322,12 @@ describe('turn clock', () => {
       let clock = sync(first.clock, { now: 1000, revision: 1, phase: phase('2', 1) });
       clock = sync(clock, { now: 1100, revision: 2, actor: 1, phase: phase('3', 0) });
       expect(clock.consecutiveTimeouts).toEqual([1, 0]);
-      // Seat 0 plays a spell that hands a nested choice to seat 1 (S-19 -> S-11).
+      // Seat 0 plays a spell that hands a nested choice to seat 1 (e.g. through S-19); the phases
+      // are built by hand, so no particular spell has to end the turn.
       return sync(clock, { now: 1200, revision: 3, actor: 0, phase: phase('3', 0, 1) });
     }
 
-    it('the other seat answering a nested choice that ends the turn resets the count', () => {
+    it('the turn ending right after the other seat answers a nested choice resets the count', () => {
       let clock = afterOneTimeout();
       clock = sync(clock, { now: 1250, revision: 4, actor: 1, phase: phase('4', 1) });
       expect(clock.consecutiveTimeouts).toEqual([0, 0]);

@@ -450,7 +450,7 @@
       "name": "Mass Recall",
       "text": {
         "condition": "There are exactly 3 creatures on the field in total (both sides together).",
-        "primary": "Return all 3 creatures to their owners' hands. Your turn ends.",
+        "primary": "Return all 3 creatures to their owners' hands. The returned creatures cannot be played again this turn.",
         "secondary": "Draw 1 card from the deck."
       },
       "secondary": {
@@ -493,7 +493,7 @@
       "name": "Changing of the Guard",
       "text": {
         "condition": "You have a Leading creature and at least 1 creature in hand.",
-        "primary": "Shuffle your Leading creature into the deck and put a creature of your choice from your hand in its place. The new creature becomes your Leading creature and its modifier activates; the creature below it does not activate. Your turn ends.",
+        "primary": "Shuffle your Leading creature into the deck and put a creature of your choice from your hand in its place. The new creature becomes your Leading creature and its modifier activates; the creature below it does not activate.",
         "secondary": "Draw 1 random card from the graveyard."
       },
       "secondary": {
@@ -551,7 +551,7 @@
       "name": "Repel",
       "text": {
         "condition": "Your opponent has a Level 1, 2 or 3 creature on the field (their Base counts).",
-        "primary": "Choose an enemy Level 1-3 creature and return it to its owner's hand. The cards above it shift down one position; if it was the Base, the next card becomes the new Base. Your turn ends.",
+        "primary": "Choose an enemy Level 1-3 creature and return it to its owner's hand. The cards above it shift down one position; if it was the Base, the next card becomes the new Base. The returned creature cannot be played again this turn.",
         "secondary": "Draw 1 random card from the graveyard."
       },
       "secondary": {
@@ -652,7 +652,7 @@
       "name": "Mutual Withdrawal",
       "text": {
         "condition": "Your opponent has at least 2 more creatures on the field than you, and you have at least 1.",
-        "primary": "Choose 1 enemy creature and 1 of your own creatures and return both to their owners' hands. Your turn ends.",
+        "primary": "Choose 1 enemy creature and 1 of your own creatures and return both to their owners' hands. The returned creatures cannot be played again this turn.",
         "secondary": "Draw 1 random card from the graveyard."
       },
       "secondary": {

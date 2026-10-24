@@ -201,6 +201,8 @@ const REJECTION_TEXT: Readonly<Record<string, string>> = {
   RULES_MISMATCH: 'This action does not belong to this match.',
   DUPLICATE_ACTION_ID: 'This action was already sent.',
   ILLEGAL: 'That move is not allowed right now.',
+  // RD-173: in the P2 opening a card that can Nullify may only Nullify.
+  NULLIFY_REQUIRED: 'This card can nullify, so Nullify is its only option.',
 };
 
 export interface Announcement {

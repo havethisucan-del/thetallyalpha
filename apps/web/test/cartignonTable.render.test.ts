@@ -109,13 +109,19 @@ describe('ActionBar', () => {
     const html = render('c01');
     expect(html).toContain('aria-label="Actions for Orange 3, ATK 4"');
     expect(html).toContain('aria-label="Play Orange 3, ATK 4"');
-    expect(html).toContain('aria-label="Nullify Orange 3, ATK 4"');
+    expect(html).not.toContain('card-nullify');
     expect(html).not.toContain('card-playSpell');
     expect(html).toContain('data-testid="global-endTurn"');
   });
 
-  it('says so when the selected card has no legal command', () => {
+  it('offers only Nullify for a card that can nullify (RD-173: no Play next to it)', () => {
     const html = render('c03');
+    expect(html).toContain('aria-label="Nullify Blue 2, ATK 3"');
+    expect(html).not.toContain('data-testid="card-playCreature"');
+  });
+
+  it('says so when the selected card has no legal command', () => {
+    const html = render('c04');
     expect(html).toContain('data-testid="no-card-actions"');
     expect(html).not.toContain('data-testid="card-playCreature"');
   });
@@ -186,7 +192,7 @@ describe('CartignonTable', () => {
     const html = renderToStaticMarkup(
       createElement(CartignonTable, { model: tableModel(), canAct: true, onCommand: noop }),
     );
-    expect(count(html, /aria-pressed="false"/)).toBe(3);
+    expect(count(html, /aria-pressed="false"/)).toBe(4);
   });
 
   it('shows the deck and graveyard as pile buttons with counts, panels closed', () => {

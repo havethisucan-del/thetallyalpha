@@ -131,7 +131,7 @@ export function CardView({
  * (the one UI line; the amber edge Secondary had before is gone, its fill and text carry it).
  * Not castable now: struck through (thick line) at full contrast; the reason is in the card's tooltip and accessible name. Text always carries the
  * meaning, colour never alone. */
-function SpellHintBadge({
+export function SpellHintBadge({
   hint,
   onPaper = false,
   className = '',

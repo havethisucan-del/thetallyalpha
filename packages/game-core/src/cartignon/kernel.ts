@@ -208,7 +208,10 @@ export interface SpellKernel {
   returnHandCards(seat: Seat, cardIds: readonly CardId[]): void;
   /** Shuffles the deck (round RNG; the kernel owns it). */
   shuffleDeck(): void;
-  /** RD-117 (S-09): `seat` may not play `cardId` again this turn (`turnLocks`). */
+  /**
+   * RD-117 (S-09), RD-172 (S-04, S-11, S-18): `seat` may not play `cardId` again this turn
+   * (`turnLocks`).
+   */
   lockReplay(seat: Seat, cardId: CardId): void;
   /** RD-107: whole stacks change sides; no activation edge. */
   swapStacks(): void;
@@ -218,8 +221,6 @@ export interface SpellKernel {
   addStackAtk(seat: Seat, amount: number): void;
   /** RD-111: fires a copy of `kind` (taken from `sourceCardId`) for the caster at once. */
   fireCopiedModifier(kind: ModifierKind, sourceCardId: CardId): void;
-  /** RD-121: the turn in progress ends after the spell has resolved. */
-  requestEndTurn(): void;
   /**
    * ADR-0007 `armTrap` (RD-101, S-12 / S-16): when the spell finishes it is armed on `seat`'s side
    * (`Board.armedTraps`) instead of going to the graveyard.
@@ -242,7 +243,6 @@ export interface SpellKernel {
 export interface KernelOutcome {
   readonly board: Board;
   readonly events: readonly RoundEvent[];
-  readonly endTurnRequested: boolean;
   /** The first creature this spell attached an effect to, if any (RD-12 / RD-14 destination). */
   readonly attachedTo: CardId | null;
   /**
@@ -265,7 +265,6 @@ function otherSeat(seat: Seat): Seat {
  * continuation when a handler resumes, so a suspend/resume boundary changes nothing.
  */
 export interface KernelCarry {
-  readonly endTurnRequested: boolean;
   readonly attachedTo: CardId | null;
   /** `armTrap` (R4c-4). Absent = null. */
   readonly armedOn?: Seat | null;
@@ -283,13 +282,12 @@ export function createSpellKernel(
   caster: Seat,
   spellCardId: CardId,
   rng: Rng,
-  carry: KernelCarry = { endTurnRequested: false, attachedTo: null },
+  carry: KernelCarry = { attachedTo: null },
   locked: readonly CardId[] = [],
   onPlacement?: PlacementSettler,
 ): { readonly kernel: SpellKernel; finish(): KernelOutcome } {
   let current = board;
   const events: RoundEvent[] = [];
-  let endTurnRequested = carry.endTurnRequested;
   let attachedTo: CardId | null = carry.attachedTo;
   let armedOn: Seat | null = carry.armedOn ?? null;
   const opponent = otherSeat(caster);
@@ -551,9 +549,6 @@ export function createSpellKernel(
         }
       }
     },
-    requestEndTurn() {
-      endTurnRequested = true;
-    },
     armTrap(seat) {
       armedOn = seat;
     },
@@ -597,7 +592,7 @@ export function createSpellKernel(
     kernel,
     finish: () => {
       if (revealed !== null) throw new Error('spell handler bug: revealed card left unresolved');
-      return { board: current, events, endTurnRequested, attachedTo, locks, armedOn, handedOff };
+      return { board: current, events, attachedTo, locks, armedOn, handedOff };
     },
   };
 }

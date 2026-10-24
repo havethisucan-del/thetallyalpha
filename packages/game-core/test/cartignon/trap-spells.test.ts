@@ -356,7 +356,9 @@ describe('S-16 Recoil Snare (RD-104, RD-143)', () => {
     expect(state.board.armedTraps).toBeUndefined();
     // RD-153 (user): the Secondary gave Y2 an effect, so the trap card attaches to Y2.
     expect(state.board.zones.graveyard).not.toContain(S16);
-    expect(state.board.attachedSpells).toEqual([{ cardId: S16, seat: 0, targetCardId: Y2 }]);
+    expect(state.board.attachedSpells).toEqual([
+      { cardId: S16, seat: 0, targetCardId: Y2, branch: 'secondary' },
+    ]);
 
     // It goes to the graveyard with its creature (RD-12 / RD-50): S-11 returns Y2 to the hand.
     const t: RoundState = deepFreeze({
@@ -699,7 +701,7 @@ describe('lapse paths (RD-129, RD-156: lapse first, then decide)', () => {
     expect(state.phase).toEqual({ kind: 'p2Opening', active: 1 });
   });
 
-  it('a turn-ending spell (S-11) lapses the window traps after the spell, before the turn ends', () => {
+  it('S-11 no longer ends the turn (RD-172): the window traps lapse only at the End Turn', () => {
     const s = withTraps(
       stateOf({
         hands: [[], [spell(11)]],
@@ -713,10 +715,12 @@ describe('lapse paths (RD-129, RD-156: lapse first, then decide)', () => {
       }),
       [[S12, 0]],
     );
-    const { state, events } = apply(s, 1, ps(spell(11)));
-    const t = types(events);
-    expect(t.indexOf('spellResolved')).toBeLessThan(t.indexOf('trapLapsed'));
-    expect(t.slice(t.indexOf('trapLapsed'))).toEqual([
+    const cast = apply(s, 1, ps(spell(11)));
+    expect(types(cast.events)).not.toContain('trapLapsed');
+    expect(cast.state.board.armedTraps).toHaveLength(1);
+    expect(cast.state.phase).toEqual({ kind: 'turn', active: 1 });
+    const { state, events } = apply(cast.state, 1, END);
+    expect(types(events)).toEqual([
       'trapLapsed',
       'cardsDrawn',
       'spellDrawResolved',
@@ -853,7 +857,7 @@ describe('lapse at an earlier round end (RD-129) and the match guards', () => {
     expect(flipped.state.phase).toEqual({ kind: 'turn', active: 0 });
     expect(flipped.state.board.armedTraps).toBeUndefined();
     expect(flipped.state.board.attachedSpells).toEqual([
-      { cardId: S16, seat: 1, targetCardId: R3 },
+      { cardId: S16, seat: 1, targetCardId: R3, branch: 'secondary' },
     ]);
 
     // 40 vs 10 -> 10 vs 10 after the lapse: the turn passes and remembers the ending seat.
@@ -865,9 +869,9 @@ describe('lapse at an earlier round end (RD-129) and the match guards', () => {
     expect(passed.state.board.armedTraps).toBeUndefined();
   });
 
-  it('a turn-ending spell (S-11) ends the round while the caster own trap is armed', () => {
-    // Seat 1 (behind) casts S-11 on R3 (the only level <= 3): 90 vs 30, so the End Turn would
-    // end the round (RD-169); seat 1's own S-16 lapses (-30 on R5) and it ends on 60 vs 30.
+  it('after S-11 (no turn end, RD-172) the End Turn ends the round while the own trap is armed', () => {
+    // Seat 1 (behind) casts S-11 on R3 (the only level <= 3): 90 vs 30, so its End Turn ends
+    // the round (RD-169); seat 1's own S-16 lapses (-30 on R5) and it ends on 60 vs 30.
     const s = withTraps(
       stateOf({
         hands: [[], [spell(11)]],
@@ -879,15 +883,10 @@ describe('lapse at an earlier round end (RD-129) and the match guards', () => {
       }),
       [[S16, 1]],
     );
-    const { state, events } = apply(s, 1, ps(spell(11)));
-    const t = types(events);
-    expect(t.slice(t.indexOf('spellResolved'))).toEqual([
-      'spellResolved',
-      'trapLapsed',
-      'effectAttached',
-      'turnEnded',
-      'roundOver',
-    ]);
+    const cast = apply(s, 1, ps(spell(11)));
+    expect(cast.state.phase).toEqual({ kind: 'turn', active: 1 });
+    const { state, events } = apply(cast.state, 1, END);
+    expect(types(events)).toEqual(['trapLapsed', 'effectAttached', 'turnEnded', 'roundOver']);
     expect(state.phase).toMatchObject({
       kind: 'roundOver',
       reason: 'opponentAhead',

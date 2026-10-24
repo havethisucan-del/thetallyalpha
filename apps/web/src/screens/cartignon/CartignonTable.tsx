@@ -8,6 +8,7 @@ import {
   tokenCount,
   turnBannerText,
 } from '../../match/cartignon/labels';
+import { spellBranchesFromEvents } from '../../match/cartignon/attachedSpells';
 import { mergeHistory, unreadCount } from '../../match/cartignon/logHistory';
 import { modifierGlows } from '../../match/cartignon/modifierGlow';
 import type { NarrationLine } from '../../match/cartignon/narration';
@@ -114,6 +115,11 @@ export function CartignonTable({
       ),
     [eventLog, model.center.liveModifiers, model.opponent.stack, model.me.stack],
   );
+  // Fallback for attached spells whose view entry has no `branch` (old saved boards, RD-174).
+  const eventBranches = useMemo(
+    () => spellBranchesFromEvents(eventLog.map((entry) => entry.event)),
+    [eventLog],
+  );
   const myChoice = model.myChoice;
   const choiceOpen = myChoice !== null && hiddenChoiceId !== myChoice.choiceId;
   // A stale id (card played or gone) simply selects nothing.
@@ -169,7 +175,7 @@ export function CartignonTable({
       <div className="contents" data-testid="table-scroll">
         <OpponentHand area={model.opponent} name={opponentLabel} active={theyAct} />
         <div className="ct-seat" data-side="theirs" data-testid="theirs-seat">
-          <SeatStack area={model.opponent} glows={glows} />
+          <SeatStack area={model.opponent} glows={glows} branches={eventBranches} />
           <SeatBar
             area={model.opponent}
             name={opponentLabel}
@@ -181,7 +187,7 @@ export function CartignonTable({
         <CenterStrip center={center} />
         <TokenTrack tokens={tokens} />
         <div className="ct-seat" data-side="mine" data-testid="mine-seat">
-          <SeatStack area={model.me} glows={glows} />
+          <SeatStack area={model.me} glows={glows} branches={eventBranches} />
           <SeatBar
             area={model.me}
             tokens={tokenCount(tokens, 'mine')}

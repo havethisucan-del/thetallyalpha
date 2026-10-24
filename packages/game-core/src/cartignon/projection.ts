@@ -107,6 +107,8 @@ export interface CartignonPublicView {
       readonly cardId: CardId;
       readonly seat: Seat;
       readonly targetCardId: CardId;
+      /** RD-174: the effect that attached the card; absent on boards saved before it existed. */
+      readonly branch?: SpellBranch;
     }[];
     readonly stackEffects: readonly StackEffect[];
     /** RD-133: `live` is derived (no event reports it). */
@@ -316,6 +318,7 @@ export function projectCartignonPublic(
         cardId: s.cardId,
         seat: s.seat,
         targetCardId: s.targetCardId,
+        ...(s.branch === undefined ? {} : { branch: s.branch }),
       })),
       stackEffects: board.stackEffects.map(stackEffectView),
       copiedModifiers: board.copiedModifiers.map((m) => ({
